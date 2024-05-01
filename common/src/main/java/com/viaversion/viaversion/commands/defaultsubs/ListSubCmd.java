@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2022 ViaVersion and contributors
+ * Copyright (C) 2016-2024 ViaVersion and contributors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -21,7 +21,6 @@ import com.viaversion.viaversion.api.Via;
 import com.viaversion.viaversion.api.command.ViaCommandSender;
 import com.viaversion.viaversion.api.command.ViaSubCommand;
 import com.viaversion.viaversion.api.protocol.version.ProtocolVersion;
-
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
@@ -35,7 +34,7 @@ public class ListSubCmd extends ViaSubCommand {
 
     @Override
     public String description() {
-        return "Shows lists of the versions from logged in players";
+        return "Shows lists of the versions from logged in players.";
     }
 
     @Override
@@ -45,7 +44,7 @@ public class ListSubCmd extends ViaSubCommand {
 
     @Override
     public boolean execute(ViaCommandSender sender, String[] args) {
-        Map<ProtocolVersion, Set<String>> playerVersions = new TreeMap<>((o1, o2) -> ProtocolVersion.getIndex(o2) - ProtocolVersion.getIndex(o1));
+        Map<ProtocolVersion, Set<String>> playerVersions = new TreeMap<>(ProtocolVersion::compareTo);
 
         for (ViaCommandSender p : Via.getPlatform().getOnlinePlayers()) {
             int playerVersion = Via.getAPI().getPlayerVersion(p.getUUID());

@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2022 ViaVersion and contributors
+ * Copyright (C) 2016-2024 ViaVersion and contributors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -20,17 +20,19 @@ package com.viaversion.viaversion.protocols.protocol1_19to1_18_2.packets;
 import com.github.steveice10.opennbt.tag.builtin.CompoundTag;
 import com.github.steveice10.opennbt.tag.builtin.IntTag;
 import com.github.steveice10.opennbt.tag.builtin.ListTag;
-import com.github.steveice10.opennbt.tag.builtin.Tag;
+import com.github.steveice10.opennbt.tag.builtin.NumberTag;
 import com.google.common.collect.Maps;
+import com.google.gson.JsonElement;
 import com.viaversion.viaversion.api.Via;
+import com.viaversion.viaversion.api.data.ParticleMappings;
 import com.viaversion.viaversion.api.data.entity.DimensionData;
+import com.viaversion.viaversion.api.minecraft.Particle;
 import com.viaversion.viaversion.api.minecraft.Position;
-import com.viaversion.viaversion.api.minecraft.entities.Entity1_19Types;
 import com.viaversion.viaversion.api.minecraft.entities.EntityType;
+import com.viaversion.viaversion.api.minecraft.entities.EntityTypes1_19;
 import com.viaversion.viaversion.api.minecraft.metadata.Metadata;
-import com.viaversion.viaversion.api.minecraft.nbt.BinaryTagIO;
 import com.viaversion.viaversion.api.protocol.packet.PacketWrapper;
-import com.viaversion.viaversion.api.protocol.remapper.PacketRemapper;
+import com.viaversion.viaversion.api.protocol.remapper.PacketHandlers;
 import com.viaversion.viaversion.api.type.Type;
 import com.viaversion.viaversion.api.type.types.version.Types1_18;
 import com.viaversion.viaversion.api.type.types.version.Types1_19;
@@ -40,50 +42,16 @@ import com.viaversion.viaversion.protocols.protocol1_19to1_18_2.ClientboundPacke
 import com.viaversion.viaversion.protocols.protocol1_19to1_18_2.Protocol1_19To1_18_2;
 import com.viaversion.viaversion.protocols.protocol1_19to1_18_2.storage.DimensionRegistryStorage;
 import com.viaversion.viaversion.rewriter.EntityRewriter;
+import com.viaversion.viaversion.util.Key;
 import com.viaversion.viaversion.util.Pair;
-
-import java.io.IOException;
+import com.viaversion.viaversion.util.TagUtil;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-public final class EntityPackets extends EntityRewriter<Protocol1_19To1_18_2> {
-
-    private static final String CHAT_REGISTRY_SNBT = "{\n" +
-            "  \"minecraft:chat_type\": {\n" +
-            "    \"type\": \"minecraft:chat_type\",\n" +
-            "    \"value\": [\n" +
-            "      {\n" +
-            "        \"name\": \"minecraft:system\",\n" +
-            "        \"id\": 1,\n" +
-            "        \"element\": {\n" +
-            "          \"chat\": {},\n" +
-            "          \"narration\": {\n" +
-            "            \"priority\": \"system\"\n" +
-            "          }\n" +
-            "        }\n" +
-            "      },\n" +
-            "      {\n" +
-            "        \"name\": \"minecraft:game_info\",\n" +
-            "        \"id\": 2,\n" +
-            "        \"element\": {\n" +
-            "          \"overlay\": {}\n" +
-            "        }\n" +
-            "      }\n" +
-            "    ]\n" +
-            "  }\n" +
-            "}";
-    public static final CompoundTag CHAT_REGISTRY;
-
-    static {
-        try {
-            CHAT_REGISTRY = BinaryTagIO.readString(CHAT_REGISTRY_SNBT).get("minecraft:chat_type");
-        } catch (final IOException e) {
-            throw new RuntimeException(e);
-        }
-    }
+public final class EntityPackets extends EntityRewriter<ClientboundPackets1_18, Protocol1_19To1_18_2> {
 
     public EntityPackets(final Protocol1_19To1_18_2 protocol) {
         super(protocol);
@@ -91,13 +59,13 @@ public final class EntityPackets extends EntityRewriter<Protocol1_19To1_18_2> {
 
     @Override
     public void registerPackets() {
-        registerTracker(ClientboundPackets1_18.SPAWN_PLAYER, Entity1_19Types.PLAYER);
+        registerTracker(ClientboundPackets1_18.SPAWN_PLAYER, EntityTypes1_19.PLAYER);
         registerMetadataRewriter(ClientboundPackets1_18.ENTITY_METADATA, Types1_18.METADATA_LIST, Types1_19.METADATA_LIST);
         registerRemoveEntities(ClientboundPackets1_18.REMOVE_ENTITIES);
 
-        protocol.registerClientbound(ClientboundPackets1_18.SPAWN_ENTITY, new PacketRemapper() {
+        protocol.registerClientbound(ClientboundPackets1_18.SPAWN_ENTITY, new PacketHandlers() {
             @Override
-            public void registerMap() {
+            public void register() {
                 map(Type.VAR_INT); // Entity id
                 map(Type.UUID); // Entity UUID
                 map(Type.VAR_INT); // Entity type
@@ -115,20 +83,20 @@ public final class EntityPackets extends EntityRewriter<Protocol1_19To1_18_2> {
                 handler(wrapper -> {
                     final int entityId = wrapper.get(Type.VAR_INT, 0);
                     final EntityType entityType = tracker(wrapper.user()).entityType(entityId);
-                    if (entityType == Entity1_19Types.FALLING_BLOCK) {
+                    if (entityType == EntityTypes1_19.FALLING_BLOCK) {
                         wrapper.set(Type.VAR_INT, 2, protocol.getMappingData().getNewBlockStateId(wrapper.get(Type.VAR_INT, 2)));
                     }
                 });
             }
         });
 
-        protocol.registerClientbound(ClientboundPackets1_18.SPAWN_PAINTING, ClientboundPackets1_19.SPAWN_ENTITY, new PacketRemapper() {
+        protocol.registerClientbound(ClientboundPackets1_18.SPAWN_PAINTING, ClientboundPackets1_19.SPAWN_ENTITY, new PacketHandlers() {
             @Override
-            public void registerMap() {
+            public void register() {
                 map(Type.VAR_INT); // Entity id
                 map(Type.UUID); // Entity UUID
                 handler(wrapper -> {
-                    wrapper.write(Type.VAR_INT, Entity1_19Types.PAINTING.getId());
+                    wrapper.write(Type.VAR_INT, EntityTypes1_19.PAINTING.getId());
 
                     final int motive = wrapper.read(Type.VAR_INT);
                     final Position blockPosition = wrapper.read(Type.POSITION1_14);
@@ -158,9 +126,9 @@ public final class EntityPackets extends EntityRewriter<Protocol1_19To1_18_2> {
             }
         });
 
-        protocol.registerClientbound(ClientboundPackets1_18.SPAWN_MOB, ClientboundPackets1_19.SPAWN_ENTITY, new PacketRemapper() {
+        protocol.registerClientbound(ClientboundPackets1_18.SPAWN_MOB, ClientboundPackets1_19.SPAWN_ENTITY, new PacketHandlers() {
             @Override
-            public void registerMap() {
+            public void register() {
                 map(Type.VAR_INT); // Entity ID
                 map(Type.UUID); // Entity UUID
                 map(Type.VAR_INT); // Entity Type
@@ -183,44 +151,44 @@ public final class EntityPackets extends EntityRewriter<Protocol1_19To1_18_2> {
             }
         });
 
-        protocol.registerClientbound(ClientboundPackets1_18.ENTITY_EFFECT, new PacketRemapper() {
+        protocol.registerClientbound(ClientboundPackets1_18.ENTITY_EFFECT, new PacketHandlers() {
             @Override
-            public void registerMap() {
+            public void register() {
                 map(Type.VAR_INT); // Entity id
                 map(Type.VAR_INT); // Effect id
                 map(Type.BYTE); // Amplifier
                 map(Type.VAR_INT); // Duration
                 map(Type.BYTE); // Flags
-                create(Type.BOOLEAN, false); // No factor data
+                create(Type.OPTIONAL_NAMED_COMPOUND_TAG, null); // No factor data
             }
         });
 
-        protocol.registerClientbound(ClientboundPackets1_18.JOIN_GAME, new PacketRemapper() {
+        protocol.registerClientbound(ClientboundPackets1_18.JOIN_GAME, new PacketHandlers() {
             @Override
-            public void registerMap() {
+            public void register() {
                 map(Type.INT); // Entity ID
                 map(Type.BOOLEAN); // Hardcore
-                map(Type.UNSIGNED_BYTE); // Gamemode
+                map(Type.BYTE); // Gamemode
                 map(Type.BYTE); // Previous Gamemode
                 map(Type.STRING_ARRAY); // World List
-                map(Type.NBT); // Registry
+                map(Type.NAMED_COMPOUND_TAG); // Registry
                 handler(wrapper -> {
-                    final CompoundTag tag = wrapper.get(Type.NBT, 0);
+                    final CompoundTag tag = wrapper.get(Type.NAMED_COMPOUND_TAG, 0);
 
                     // Add necessary chat types
-                    tag.put("minecraft:chat_type", CHAT_REGISTRY.clone());
+                    tag.put("minecraft:chat_type", protocol.getMappingData().chatRegistry());
 
                     // Cache a whole lot of data
-                    final ListTag dimensions = ((CompoundTag) tag.get("minecraft:dimension_type")).get("value");
+                    final ListTag<CompoundTag> dimensions = TagUtil.getRegistryEntries(tag, "dimension_type");
                     final Map<String, DimensionData> dimensionDataMap = new HashMap<>(dimensions.size());
                     final Map<CompoundTag, String> dimensionsMap = new HashMap<>(dimensions.size());
-                    for (final Tag dimension : dimensions) {
-                        final CompoundTag dimensionCompound = (CompoundTag) dimension;
-                        final CompoundTag element = dimensionCompound.get("element");
-                        final String name = (String) dimensionCompound.get("name").getValue();
+                    for (final CompoundTag dimension : dimensions) {
+                        final NumberTag idTag = dimension.getNumberTag("id");
+                        final CompoundTag element = dimension.getCompoundTag("element");
+                        final String name = dimension.getStringTag("name").getValue();
                         addMonsterSpawnData(element);
-                        dimensionDataMap.put(name, new DimensionDataImpl(element));
-                        dimensionsMap.put(element.clone(), name);
+                        dimensionDataMap.put(Key.stripMinecraftNamespace(name), new DimensionDataImpl(idTag.asInt(), element));
+                        dimensionsMap.put(element.copy(), name);
                     }
                     tracker(wrapper.user()).setDimensions(dimensionDataMap);
 
@@ -249,9 +217,9 @@ public final class EntityPackets extends EntityRewriter<Protocol1_19To1_18_2> {
                 });
             }
         });
-        protocol.registerClientbound(ClientboundPackets1_18.RESPAWN, new PacketRemapper() {
+        protocol.registerClientbound(ClientboundPackets1_18.RESPAWN, new PacketHandlers() {
             @Override
-            public void registerMap() {
+            public void register() {
                 handler(wrapper -> writeDimensionKey(wrapper, wrapper.user().get(DimensionRegistryStorage.class)));
                 map(Type.STRING); // World
                 map(Type.LONG); // Seed
@@ -265,50 +233,49 @@ public final class EntityPackets extends EntityRewriter<Protocol1_19To1_18_2> {
             }
         });
 
-        protocol.registerClientbound(ClientboundPackets1_18.PLAYER_INFO, new PacketRemapper() {
-            @Override
-            public void registerMap() {
-                handler(wrapper -> {
-                    final int action = wrapper.passthrough(Type.VAR_INT);
-                    final int entries = wrapper.passthrough(Type.VAR_INT);
-                    for (int i = 0; i < entries; i++) {
-                        wrapper.passthrough(Type.UUID); // UUID
-                        if (action == 0) { // Add player
-                            wrapper.passthrough(Type.STRING); // Player Name
+        protocol.registerClientbound(ClientboundPackets1_18.PLAYER_INFO, wrapper -> {
+            final int action = wrapper.passthrough(Type.VAR_INT);
+            final int entries = wrapper.passthrough(Type.VAR_INT);
+            for (int i = 0; i < entries; i++) {
+                wrapper.passthrough(Type.UUID); // UUID
+                if (action == 0) { // Add player
+                    wrapper.passthrough(Type.STRING); // Player Name
 
-                            final int properties = wrapper.passthrough(Type.VAR_INT);
-                            for (int j = 0; j < properties; j++) {
-                                wrapper.passthrough(Type.STRING); // Name
-                                wrapper.passthrough(Type.STRING); // Value
-                                if (wrapper.passthrough(Type.BOOLEAN)) {
-                                    wrapper.passthrough(Type.STRING); // Signature
-                                }
-                            }
-
-                            wrapper.passthrough(Type.VAR_INT); // Gamemode
-                            wrapper.passthrough(Type.VAR_INT); // Ping
-                            if (wrapper.passthrough(Type.BOOLEAN)) {
-                                wrapper.passthrough(Type.COMPONENT); // Display name
-                            }
-
-                            // No public profile signature
-                            wrapper.write(Type.OPTIONAL_PROFILE_KEY, null);
-                        } else if (action == 1 || action == 2) { // Update gamemode/update latency
-                            wrapper.passthrough(Type.VAR_INT);
-                        } else if (action == 3) { // Update display name
-                            if (wrapper.passthrough(Type.BOOLEAN)) {
-                                wrapper.passthrough(Type.COMPONENT);
-                            }
-                        }
+                    final int properties = wrapper.passthrough(Type.VAR_INT);
+                    for (int j = 0; j < properties; j++) {
+                        wrapper.passthrough(Type.STRING); // Name
+                        wrapper.passthrough(Type.STRING); // Value
+                        wrapper.passthrough(Type.OPTIONAL_STRING); // Signature
                     }
-                });
+
+                    wrapper.passthrough(Type.VAR_INT); // Gamemode
+                    wrapper.passthrough(Type.VAR_INT); // Ping
+                    final JsonElement displayName = wrapper.read(Type.OPTIONAL_COMPONENT); // Display name
+                    if (!Protocol1_19To1_18_2.isTextComponentNull(displayName)) {
+                        wrapper.write(Type.OPTIONAL_COMPONENT, displayName);
+                    } else {
+                        wrapper.write(Type.OPTIONAL_COMPONENT, null);
+                    }
+
+                    // No public profile signature
+                    wrapper.write(Type.OPTIONAL_PROFILE_KEY, null);
+                } else if (action == 1 || action == 2) { // Update gamemode/update latency
+                    wrapper.passthrough(Type.VAR_INT);
+                } else if (action == 3) { // Update display name
+                    final JsonElement displayName = wrapper.read(Type.OPTIONAL_COMPONENT); // Display name
+                    if (!Protocol1_19To1_18_2.isTextComponentNull(displayName)) {
+                        wrapper.write(Type.OPTIONAL_COMPONENT, displayName);
+                    } else {
+                        wrapper.write(Type.OPTIONAL_COMPONENT, null);
+                    }
+                }
             }
         });
     }
 
     private static void writeDimensionKey(final PacketWrapper wrapper, final DimensionRegistryStorage registryStorage) throws Exception {
         // Find dimension key by data
-        final CompoundTag currentDimension = wrapper.read(Type.NBT);
+        final CompoundTag currentDimension = wrapper.read(Type.NAMED_COMPOUND_TAG);
         addMonsterSpawnData(currentDimension);
         String dimensionKey = registryStorage.dimensionKey(currentDimension);
         if (dimensionKey == null) {
@@ -354,17 +321,33 @@ public final class EntityPackets extends EntityRewriter<Protocol1_19To1_18_2> {
 
     @Override
     protected void registerRewrites() {
-        filter().handler((event, meta) -> meta.setMetaType(Types1_19.META_TYPES.byId(meta.metaType().typeId())));
+        filter().mapMetaType(Types1_19.META_TYPES::byId);
+        filter().metaType(Types1_19.META_TYPES.particleType).handler((event, meta) -> {
+            final Particle particle = (Particle) meta.getValue();
+            final ParticleMappings particleMappings = protocol.getMappingData().getParticleMappings();
+            if (particle.getId() == particleMappings.id("vibration")) {
+                // Remove the position
+                particle.getArguments().remove(0);
 
-        registerMetaTypeHandler(Types1_19.META_TYPES.itemType, Types1_19.META_TYPES.blockStateType, Types1_19.META_TYPES.particleType);
+                final String resourceLocation = Key.stripMinecraftNamespace(particle.<String>getArgument(0).getValue());
+                if (resourceLocation.equals("entity")) {
+                    // Add Y offset
+                    particle.getArguments().add(2, new Particle.ParticleData<>(Type.FLOAT, 0F));
+                }
+            }
 
-        filter().filterFamily(Entity1_19Types.MINECART_ABSTRACT).index(11).handler((event, meta) -> {
+            rewriteParticle(event.user(), particle);
+        });
+
+        registerMetaTypeHandler(Types1_19.META_TYPES.itemType, Types1_19.META_TYPES.blockStateType, null);
+
+        filter().type(EntityTypes1_19.MINECART_ABSTRACT).index(11).handler((event, meta) -> {
             // Convert to new block id
             final int data = (int) meta.getValue();
             meta.setValue(protocol.getMappingData().getNewBlockStateId(data));
         });
 
-        filter().type(Entity1_19Types.CAT).index(19).handler((event, meta) -> meta.setMetaType(Types1_19.META_TYPES.catVariantType));
+        filter().type(EntityTypes1_19.CAT).index(19).mapMetaType(typeId -> Types1_19.META_TYPES.catVariantType);
     }
 
     @Override
@@ -374,6 +357,6 @@ public final class EntityPackets extends EntityRewriter<Protocol1_19To1_18_2> {
 
     @Override
     public EntityType typeFromId(final int type) {
-        return Entity1_19Types.getTypeFromId(type);
+        return EntityTypes1_19.getTypeFromId(type);
     }
 }

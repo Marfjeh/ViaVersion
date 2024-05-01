@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2022 ViaVersion and contributors
+ * Copyright (C) 2016-2024 ViaVersion and contributors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -17,32 +17,33 @@
  */
 package com.viaversion.viaversion.protocol;
 
+import com.viaversion.viaversion.api.protocol.version.ProtocolVersion;
 import com.viaversion.viaversion.api.protocol.version.ServerProtocolVersion;
-import it.unimi.dsi.fastutil.ints.IntSortedSet;
+import java.util.SortedSet;
 
 public class ServerProtocolVersionRange implements ServerProtocolVersion {
-    private final int lowestSupportedVersion;
-    private final int highestSupportedVersion;
-    private final IntSortedSet supportedVersions;
+    private final ProtocolVersion lowestSupportedVersion;
+    private final ProtocolVersion highestSupportedVersion;
+    private final SortedSet<ProtocolVersion> supportedVersions;
 
-    public ServerProtocolVersionRange(int lowestSupportedVersion, int highestSupportedVersion, IntSortedSet supportedVersions) {
+    public ServerProtocolVersionRange(ProtocolVersion lowestSupportedVersion, ProtocolVersion highestSupportedVersion, SortedSet<ProtocolVersion> supportedVersions) {
         this.lowestSupportedVersion = lowestSupportedVersion;
         this.highestSupportedVersion = highestSupportedVersion;
         this.supportedVersions = supportedVersions;
     }
 
     @Override
-    public int lowestSupportedVersion() {
+    public ProtocolVersion lowestSupportedProtocolVersion() {
         return lowestSupportedVersion;
     }
 
     @Override
-    public int highestSupportedVersion() {
+    public ProtocolVersion highestSupportedProtocolVersion() {
         return highestSupportedVersion;
     }
 
     @Override
-    public IntSortedSet supportedVersions() {
+    public SortedSet<ProtocolVersion> supportedProtocolVersions() {
         return supportedVersions;
     }
 }

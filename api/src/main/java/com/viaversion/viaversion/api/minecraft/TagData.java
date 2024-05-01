@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2022 ViaVersion and contributors
+ * Copyright (C) 2016-2024 ViaVersion and contributors
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -22,11 +22,13 @@
  */
 package com.viaversion.viaversion.api.minecraft;
 
+import java.util.Arrays;
+
 public final class TagData {
     private final String identifier;
     private final int[] entries;
 
-    public TagData(String identifier, int[] entries) {
+    public TagData(final String identifier, final int[] entries) {
         this.identifier = identifier;
         this.entries = entries;
     }
@@ -37,5 +39,13 @@ public final class TagData {
 
     public int[] entries() {
         return entries;
+    }
+
+    @Override
+    public String toString() {
+        return "TagData{" +
+            "identifier='" + identifier + '\'' +
+            ", entries=" + Arrays.toString(entries) +
+            '}';
     }
 }

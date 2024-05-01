@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2022 ViaVersion and contributors
+ * Copyright (C) 2016-2024 ViaVersion and contributors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -25,7 +25,6 @@ import io.netty.channel.ChannelHandler;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelPipeline;
 import io.netty.handler.codec.MessageToMessageDecoder;
-
 import java.util.List;
 
 @ChannelHandler.Sharable
@@ -71,12 +70,10 @@ public class VelocityDecodeHandler extends MessageToMessageDecoder<ByteBuf> {
         // Move Via codec handlers back to right position
         ChannelPipeline pipeline = ctx.pipeline();
 
-        ChannelHandler encoder = pipeline.get(VelocityChannelInitializer.VIA_ENCODER);
-        pipeline.remove(encoder);
+        ChannelHandler encoder = pipeline.remove(VelocityChannelInitializer.VIA_ENCODER);
         pipeline.addBefore(VelocityChannelInitializer.MINECRAFT_ENCODER, VelocityChannelInitializer.VIA_ENCODER, encoder);
 
-        ChannelHandler decoder = pipeline.get(VelocityChannelInitializer.VIA_DECODER);
-        pipeline.remove(decoder);
+        ChannelHandler decoder = pipeline.remove(VelocityChannelInitializer.VIA_DECODER);
         pipeline.addBefore(VelocityChannelInitializer.MINECRAFT_DECODER, VelocityChannelInitializer.VIA_DECODER, decoder);
 
         super.userEventTriggered(ctx, event);

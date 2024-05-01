@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2022 ViaVersion and contributors
+ * Copyright (C) 2016-2024 ViaVersion and contributors
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -23,8 +23,7 @@
 package com.viaversion.viaversion.api.protocol.packet;
 
 /**
- * Interface to be implemented by server outgoing packet type enums,
- * representing PLAY state packets, ordered by their packet id.
+ * Interface to be implemented by server outgoing packet types.
  */
 public interface ClientboundPacketType extends PacketType {
 

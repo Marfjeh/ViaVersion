@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2022 ViaVersion and contributors
+ * Copyright (C) 2016-2024 ViaVersion and contributors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -18,9 +18,8 @@
 package com.viaversion.viaversion.rewriter;
 
 import com.github.steveice10.opennbt.tag.builtin.CompoundTag;
-import com.github.steveice10.opennbt.tag.builtin.IntTag;
 import com.github.steveice10.opennbt.tag.builtin.ListTag;
-import com.github.steveice10.opennbt.tag.builtin.Tag;
+import com.github.steveice10.opennbt.tag.builtin.NumberTag;
 import com.google.common.base.Preconditions;
 import com.viaversion.viaversion.api.Via;
 import com.viaversion.viaversion.api.connection.UserConnection;
@@ -29,29 +28,39 @@ import com.viaversion.viaversion.api.data.Mappings;
 import com.viaversion.viaversion.api.data.ParticleMappings;
 import com.viaversion.viaversion.api.data.entity.DimensionData;
 import com.viaversion.viaversion.api.data.entity.EntityTracker;
+import com.viaversion.viaversion.api.data.entity.TrackedEntity;
+import com.viaversion.viaversion.api.minecraft.Particle;
+import com.viaversion.viaversion.api.minecraft.RegistryEntry;
 import com.viaversion.viaversion.api.minecraft.entities.EntityType;
 import com.viaversion.viaversion.api.minecraft.item.Item;
 import com.viaversion.viaversion.api.minecraft.metadata.MetaType;
 import com.viaversion.viaversion.api.minecraft.metadata.Metadata;
 import com.viaversion.viaversion.api.protocol.Protocol;
 import com.viaversion.viaversion.api.protocol.packet.ClientboundPacketType;
+import com.viaversion.viaversion.api.protocol.packet.PacketWrapper;
 import com.viaversion.viaversion.api.protocol.remapper.PacketHandler;
-import com.viaversion.viaversion.api.protocol.remapper.PacketRemapper;
+import com.viaversion.viaversion.api.protocol.remapper.PacketHandlers;
+import com.viaversion.viaversion.api.rewriter.ItemRewriter;
 import com.viaversion.viaversion.api.rewriter.RewriterBase;
 import com.viaversion.viaversion.api.type.Type;
-import com.viaversion.viaversion.api.type.types.Particle;
+import com.viaversion.viaversion.data.entity.DimensionDataImpl;
 import com.viaversion.viaversion.rewriter.meta.MetaFilter;
 import com.viaversion.viaversion.rewriter.meta.MetaHandlerEvent;
 import com.viaversion.viaversion.rewriter.meta.MetaHandlerEventImpl;
-import org.checkerframework.checker.nullness.qual.Nullable;
-
+import com.viaversion.viaversion.util.Key;
+import com.viaversion.viaversion.util.TagUtil;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
+import org.checkerframework.checker.nullness.qual.Nullable;
 
-public abstract class EntityRewriter<T extends Protocol> extends RewriterBase<T> implements com.viaversion.viaversion.api.rewriter.EntityRewriter<T> {
+public abstract class EntityRewriter<C extends ClientboundPacketType, T extends Protocol<C, ?, ?, ?>>
+    extends RewriterBase<T> implements com.viaversion.viaversion.api.rewriter.EntityRewriter<T> {
     private static final Metadata[] EMPTY_ARRAY = new Metadata[0];
     protected final List<MetaFilter> metadataFilters = new ArrayList<>();
     protected final boolean trackMappedType;
@@ -76,7 +85,7 @@ public abstract class EntityRewriter<T extends Protocol> extends RewriterBase<T>
     /**
      * Returns a meta filter builder.
      * <p>
-     * Calling {@link MetaFilter.Builder#register()} will automatically register the filter on this rewriter.
+     * Calling {@link com.viaversion.viaversion.rewriter.meta.MetaFilter.Builder#register()} will automatically register the filter on this rewriter.
      *
      * @return meta filter builder
      */
@@ -86,7 +95,7 @@ public abstract class EntityRewriter<T extends Protocol> extends RewriterBase<T>
 
     /**
      * Registers a metadata filter.
-     * Note that {@link MetaFilter.Builder#register()} already calls this method.
+     * Note that {@link com.viaversion.viaversion.rewriter.meta.MetaFilter.Builder#register()} already calls this method.
      *
      * @param filter filter to register
      * @throws IllegalArgumentException if the filter is already registered
@@ -97,72 +106,44 @@ public abstract class EntityRewriter<T extends Protocol> extends RewriterBase<T>
     }
 
     @Override
-    public void handleMetadata(int entityId, List<Metadata> metadataList, UserConnection connection) {
-        EntityType type = tracker(connection).entityType(entityId);
-        int i = 0; // Count index for fast removal
-        for (Metadata metadata : metadataList.toArray(EMPTY_ARRAY)) { // Copy the list to allow mutation
-            // Call handlers implementing the old handleMetadata
-            if (!callOldMetaHandler(entityId, type, metadata, metadataList, connection)) {
-                metadataList.remove(i--);
-                continue;
-            }
-
+    public void handleMetadata(final int entityId, final List<Metadata> metadataList, final UserConnection connection) {
+        final TrackedEntity entity = tracker(connection).entity(entityId);
+        final EntityType type = entity != null ? entity.entityType() : null;
+        for (final Metadata metadata : metadataList.toArray(EMPTY_ARRAY)) { // Copy the list to allow mutation
             MetaHandlerEvent event = null;
-            for (MetaFilter filter : metadataFilters) {
+            for (final MetaFilter filter : metadataFilters) {
                 if (!filter.isFiltered(type, metadata)) {
                     continue;
                 }
                 if (event == null) {
-                    // Only initialize when needed and share event instance
-                    event = new MetaHandlerEventImpl(connection, type, entityId, metadata, metadataList);
+                    // Instantiate lazily and share event instance
+                    event = new MetaHandlerEventImpl(connection, entity, entityId, metadata, metadataList);
                 }
 
                 try {
                     filter.handler().handle(event, metadata);
-                } catch (Exception e) {
+                } catch (final Exception e) {
                     logException(e, type, metadataList, metadata);
-                    metadataList.remove(i--);
+                    metadataList.remove(metadata);
                     break;
                 }
 
                 if (event.cancelled()) {
-                    // Remove meta, decrease list index counter, and break current filter loop
-                    metadataList.remove(i--);
+                    // Remove meta, and break current filter loop
+                    metadataList.remove(metadata);
                     break;
                 }
             }
 
-            if (event != null && event.extraMeta() != null) {
+            if (event != null && event.hasExtraMeta()) {
                 // Finally, add newly created meta
                 metadataList.addAll(event.extraMeta());
             }
-            i++;
         }
-    }
 
-    @Deprecated
-    private boolean callOldMetaHandler(int entityId, @Nullable EntityType type, Metadata metadata, List<Metadata> metadataList, UserConnection connection) {
-        try {
-            handleMetadata(entityId, type, metadata, metadataList, connection);
-            return true;
-        } catch (Exception e) {
-            logException(e, type, metadataList, metadata);
-            return false;
+        if (entity != null) {
+            entity.sentMetadata(true);
         }
-    }
-
-    /**
-     * To be overridden to handle metadata.
-     *
-     * @param entityId   entity id
-     * @param type       entity type, or null if not tracked
-     * @param metadata   current metadata
-     * @param metadatas  full, mutable list of metadata
-     * @param connection user connection
-     * @deprecated use {@link #filter()}
-     */
-    @Deprecated
-    protected void handleMetadata(int entityId, @Nullable EntityType type, Metadata metadata, List<Metadata> metadatas, UserConnection connection) throws Exception {
     }
 
     @Override
@@ -207,7 +188,7 @@ public abstract class EntityRewriter<T extends Protocol> extends RewriterBase<T>
             } catch (IllegalArgumentException notFound) {
                 if (!typeMappings.contains(oldType.getId())) {
                     Via.getPlatform().getLogger().warning("Could not find new entity type for " + oldType + "! " +
-                            "Old type: " + oldType.getClass().getEnclosingClass().getSimpleName() + ", new type: " + newTypeClass.getEnclosingClass().getSimpleName());
+                        "Old type: " + oldType.getClass().getEnclosingClass().getSimpleName() + ", new type: " + newTypeClass.getEnclosingClass().getSimpleName());
                 }
             }
         }
@@ -219,33 +200,57 @@ public abstract class EntityRewriter<T extends Protocol> extends RewriterBase<T>
     public void mapTypes() {
         Preconditions.checkArgument(typeMappings == null, "Type mappings have already been set - manual type mappings should be set *after* this");
         Preconditions.checkNotNull(protocol.getMappingData().getEntityMappings(), "Protocol does not have entity mappings");
-        typeMappings = protocol.getMappingData().getEntityMappings().mappings();
+        typeMappings = protocol.getMappingData().getEntityMappings();
     }
 
     /**
      * Registers a metadata handler to rewrite, item, block, and particle ids stored in metadata.
      *
-     * @param itemType     item meta type if needed
-     * @param blockType    block meta type if needed
-     * @param particleType particle meta type if needed
+     * @param itemType       item meta type if needed
+     * @param blockStateType block state meta type if needed
+     * @param particleType   particle meta type if needed
      */
-    public void registerMetaTypeHandler(@Nullable MetaType itemType, @Nullable MetaType blockType, @Nullable MetaType particleType) {
+    public void registerMetaTypeHandler(@Nullable MetaType itemType, @Nullable MetaType blockStateType, @Nullable MetaType particleType) {
+        registerMetaTypeHandler(itemType, null, blockStateType, particleType, null);
+    }
+
+    /**
+     * Registers a metadata handler to rewrite, item, block, and particle ids stored in metadata.
+     *
+     * @param itemType               item meta type if needed
+     * @param blockStateType         block state meta type if needed
+     * @param optionalBlockStateType optional block state meta type if needed
+     * @param particleType           particle meta type if needed
+     * @param particlesType          particles meta type if needed
+     */
+    public void registerMetaTypeHandler(@Nullable MetaType itemType, @Nullable MetaType blockStateType, @Nullable MetaType optionalBlockStateType, @Nullable MetaType particleType, @Nullable MetaType particlesType) {
         filter().handler((event, meta) -> {
-            if (itemType != null && meta.metaType() == itemType) {
-                protocol.getItemRewriter().handleItemToClient(meta.value());
-            } else if (blockType != null && meta.metaType() == blockType) {
+            final MetaType type = meta.metaType();
+            if (type == itemType) {
+                meta.setValue(protocol.getItemRewriter().handleItemToClient(event.user(), meta.value()));
+            } else if (type == blockStateType) {
                 int data = meta.value();
                 meta.setValue(protocol.getMappingData().getNewBlockStateId(data));
-            } else if (particleType != null && meta.metaType() == particleType) {
-                rewriteParticle(meta.value());
+            } else if (type == optionalBlockStateType) {
+                int data = meta.value();
+                if (data != 0) {
+                    meta.setValue(protocol.getMappingData().getNewBlockStateId(data));
+                }
+            } else if (type == particleType) {
+                rewriteParticle(event.user(), meta.value());
+            } else if (type == particlesType) {
+                final Particle[] particles = meta.value();
+                for (final Particle particle : particles) {
+                    rewriteParticle(event.user(), particle);
+                }
             }
         });
     }
 
-    public void registerTracker(ClientboundPacketType packetType) {
-        protocol.registerClientbound(packetType, new PacketRemapper() {
+    public void registerTracker(C packetType) {
+        protocol.registerClientbound(packetType, new PacketHandlers() {
             @Override
-            public void registerMap() {
+            public void register() {
                 map(Type.VAR_INT); // 0 - Entity ID
                 map(Type.UUID); // 1 - Entity UUID
                 map(Type.VAR_INT); // 2 - Entity Type
@@ -254,10 +259,10 @@ public abstract class EntityRewriter<T extends Protocol> extends RewriterBase<T>
         });
     }
 
-    public void registerTrackerWithData(ClientboundPacketType packetType, EntityType fallingBlockType) {
-        protocol.registerClientbound(packetType, new PacketRemapper() {
+    public void registerTrackerWithData(C packetType, EntityType fallingBlockType) {
+        protocol.registerClientbound(packetType, new PacketHandlers() {
             @Override
-            public void registerMap() {
+            public void register() {
                 map(Type.VAR_INT); // 0 - Entity id
                 map(Type.UUID); // 1 - Entity UUID
                 map(Type.VAR_INT); // 2 - Entity Type
@@ -279,10 +284,10 @@ public abstract class EntityRewriter<T extends Protocol> extends RewriterBase<T>
         });
     }
 
-    public void registerTrackerWithData1_19(ClientboundPacketType packetType, EntityType fallingBlockType) {
-        protocol.registerClientbound(packetType, new PacketRemapper() {
+    public void registerTrackerWithData1_19(C packetType, EntityType fallingBlockType) {
+        protocol.registerClientbound(packetType, new PacketHandlers() {
             @Override
-            public void registerMap() {
+            public void register() {
                 map(Type.VAR_INT); // Entity id
                 map(Type.UUID); // Entity UUID
                 map(Type.VAR_INT); // Entity type
@@ -295,6 +300,10 @@ public abstract class EntityRewriter<T extends Protocol> extends RewriterBase<T>
                 map(Type.VAR_INT); // Data
                 handler(trackerHandler());
                 handler(wrapper -> {
+                    if (protocol.getMappingData() == null) {
+                        return;
+                    }
+
                     int entityId = wrapper.get(Type.VAR_INT, 0);
                     EntityType entityType = tracker(wrapper.user()).entityType(entityId);
                     if (entityType == fallingBlockType) {
@@ -312,15 +321,10 @@ public abstract class EntityRewriter<T extends Protocol> extends RewriterBase<T>
      * @param entityType entity type
      * @param intType    int type of the entity id
      */
-    public void registerTracker(ClientboundPacketType packetType, EntityType entityType, Type<Integer> intType) {
-        protocol.registerClientbound(packetType, new PacketRemapper() {
-            @Override
-            public void registerMap() {
-                handler(wrapper -> {
-                    int entityId = wrapper.passthrough(intType);
-                    tracker(wrapper.user()).addEntity(entityId, entityType);
-                });
-            }
+    public void registerTracker(C packetType, EntityType entityType, Type<Integer> intType) {
+        protocol.registerClientbound(packetType, wrapper -> {
+            int entityId = wrapper.passthrough(intType);
+            tracker(wrapper.user()).addEntity(entityId, entityType);
         });
     }
 
@@ -330,7 +334,7 @@ public abstract class EntityRewriter<T extends Protocol> extends RewriterBase<T>
      * @param packetType packet type
      * @param entityType entity type
      */
-    public void registerTracker(ClientboundPacketType packetType, EntityType entityType) {
+    public void registerTracker(C packetType, EntityType entityType) {
         registerTracker(packetType, entityType, Type.VAR_INT);
     }
 
@@ -339,17 +343,12 @@ public abstract class EntityRewriter<T extends Protocol> extends RewriterBase<T>
      *
      * @param packetType remove entities packet type
      */
-    public void registerRemoveEntities(ClientboundPacketType packetType) {
-        protocol.registerClientbound(packetType, new PacketRemapper() {
-            @Override
-            public void registerMap() {
-                handler(wrapper -> {
-                    int[] entityIds = wrapper.passthrough(Type.VAR_INT_ARRAY_PRIMITIVE);
-                    EntityTracker entityTracker = tracker(wrapper.user());
-                    for (int entity : entityIds) {
-                        entityTracker.removeEntity(entity);
-                    }
-                });
+    public void registerRemoveEntities(C packetType) {
+        protocol.registerClientbound(packetType, wrapper -> {
+            int[] entityIds = wrapper.passthrough(Type.VAR_INT_ARRAY_PRIMITIVE);
+            EntityTracker entityTracker = tracker(wrapper.user());
+            for (int entity : entityIds) {
+                entityTracker.removeEntity(entity);
             }
         });
     }
@@ -359,22 +358,17 @@ public abstract class EntityRewriter<T extends Protocol> extends RewriterBase<T>
      *
      * @param packetType remove entities packet type
      */
-    public void registerRemoveEntity(ClientboundPacketType packetType) {
-        protocol.registerClientbound(packetType, new PacketRemapper() {
-            @Override
-            public void registerMap() {
-                handler(wrapper -> {
-                    int entityId = wrapper.passthrough(Type.VAR_INT);
-                    tracker(wrapper.user()).removeEntity(entityId);
-                });
-            }
+    public void registerRemoveEntity(C packetType) {
+        protocol.registerClientbound(packetType, wrapper -> {
+            int entityId = wrapper.passthrough(Type.VAR_INT);
+            tracker(wrapper.user()).removeEntity(entityId);
         });
     }
 
-    public void registerMetadataRewriter(ClientboundPacketType packetType, @Nullable Type<List<Metadata>> oldMetaType, Type<List<Metadata>> newMetaType) {
-        protocol.registerClientbound(packetType, new PacketRemapper() {
+    public void registerMetadataRewriter(C packetType, @Nullable Type<List<Metadata>> oldMetaType, Type<List<Metadata>> newMetaType) {
+        protocol.registerClientbound(packetType, new PacketHandlers() {
             @Override
-            public void registerMap() {
+            public void register() {
                 map(Type.VAR_INT); // 0 - Entity ID
                 if (oldMetaType != null) {
                     map(oldMetaType, newMetaType);
@@ -390,7 +384,7 @@ public abstract class EntityRewriter<T extends Protocol> extends RewriterBase<T>
         });
     }
 
-    public void registerMetadataRewriter(ClientboundPacketType packetType, Type<List<Metadata>> metaType) {
+    public void registerMetadataRewriter(C packetType, Type<List<Metadata>> metaType) {
         registerMetadataRewriter(packetType, null, metaType);
     }
 
@@ -418,18 +412,18 @@ public abstract class EntityRewriter<T extends Protocol> extends RewriterBase<T>
         return wrapper -> {
             EntityTracker tracker = tracker(wrapper.user());
 
-            CompoundTag registryData = wrapper.get(Type.NBT, nbtIndex);
-            Tag height = registryData.get("height");
-            if (height instanceof IntTag) {
-                int blockHeight = ((IntTag) height).asInt();
+            CompoundTag registryData = wrapper.get(Type.NAMED_COMPOUND_TAG, nbtIndex);
+            NumberTag height = registryData.getNumberTag("height");
+            if (height != null) {
+                int blockHeight = height.asInt();
                 tracker.setCurrentWorldSectionHeight(blockHeight >> 4);
             } else {
                 Via.getPlatform().getLogger().warning("Height missing in dimension data: " + registryData);
             }
 
-            Tag minY = registryData.get("min_y");
-            if (minY instanceof IntTag) {
-                tracker.setCurrentMinY(((IntTag) minY).asInt());
+            NumberTag minY = registryData.getNumberTag("min_y");
+            if (minY != null) {
+                tracker.setCurrentMinY(minY.asInt());
             } else {
                 Via.getPlatform().getLogger().warning("Min Y missing in dimension data: " + registryData);
             }
@@ -466,12 +460,80 @@ public abstract class EntityRewriter<T extends Protocol> extends RewriterBase<T>
         };
     }
 
-    public PacketHandler biomeSizeTracker() {
+    public PacketHandler worldDataTrackerHandlerByKey1_20_5(final int dimensionIdIndex) {
         return wrapper -> {
-            final CompoundTag registry = wrapper.get(Type.NBT, 0);
-            final CompoundTag biomeRegistry = registry.get("minecraft:worldgen/biome");
-            final ListTag biomes = biomeRegistry.get("value");
-            tracker(wrapper.user()).setBiomesSent(biomes.size());
+            EntityTracker tracker = tracker(wrapper.user());
+            int dimensionId = wrapper.get(Type.VAR_INT, dimensionIdIndex);
+            DimensionData dimensionData = tracker.dimensionData(dimensionId);
+            if (dimensionData == null) {
+                Via.getPlatform().getLogger().severe("Dimension data missing for dimension: " + dimensionId + ", falling back to overworld");
+                dimensionData = tracker.dimensionData("minecraft:overworld");
+                Preconditions.checkNotNull(dimensionData, "Overworld data missing");
+            }
+
+            tracker.setCurrentWorldSectionHeight(dimensionData.height() >> 4);
+            tracker.setCurrentMinY(dimensionData.minY());
+
+            String world = wrapper.get(Type.STRING, 0);
+            if (tracker.currentWorld() != null && !tracker.currentWorld().equals(world)) {
+                tracker.clearEntities();
+                tracker.trackClientEntity();
+            }
+            tracker.setCurrentWorld(world);
+        };
+    }
+
+    public PacketHandler biomeSizeTracker() {
+        return wrapper -> trackBiomeSize(wrapper.user(), wrapper.get(Type.NAMED_COMPOUND_TAG, 0));
+    }
+
+    public PacketHandler configurationBiomeSizeTracker() {
+        return wrapper -> trackBiomeSize(wrapper.user(), wrapper.get(Type.COMPOUND_TAG, 0));
+    }
+
+    public void trackBiomeSize(final UserConnection connection, final CompoundTag registry) {
+        final ListTag<?> biomes = TagUtil.getRegistryEntries(registry, "worldgen/biome");
+        tracker(connection).setBiomesSent(biomes.size());
+    }
+
+    public PacketHandler dimensionDataHandler() {
+        return wrapper -> cacheDimensionData(wrapper.user(), wrapper.get(Type.NAMED_COMPOUND_TAG, 0));
+    }
+
+    public PacketHandler configurationDimensionDataHandler() {
+        return wrapper -> cacheDimensionData(wrapper.user(), wrapper.get(Type.COMPOUND_TAG, 0));
+    }
+
+    /**
+     * Caches dimension data, later used to get height values and other important info.
+     */
+    public void cacheDimensionData(final UserConnection connection, final CompoundTag registry) {
+        final ListTag<CompoundTag> dimensions = TagUtil.getRegistryEntries(registry, "dimension_type");
+        final Map<String, DimensionData> dimensionDataMap = new HashMap<>(dimensions.size());
+        for (final CompoundTag dimension : dimensions) {
+            final NumberTag idTag = dimension.getNumberTag("id");
+            final CompoundTag element = dimension.getCompoundTag("element");
+            final String name = dimension.getStringTag("name").getValue();
+            dimensionDataMap.put(Key.stripMinecraftNamespace(name), new DimensionDataImpl(idTag.asInt(), element));
+        }
+        tracker(connection).setDimensions(dimensionDataMap);
+    }
+
+    public PacketHandler registryDataHandler1_20_5() {
+        return wrapper -> {
+            final String registryKey = Key.stripMinecraftNamespace(wrapper.get(Type.STRING, 0));
+            if (registryKey.equals("worldgen/biome")) {
+                final RegistryEntry[] entries = wrapper.get(Type.REGISTRY_ENTRY_ARRAY, 0);
+                tracker(wrapper.user()).setBiomesSent(entries.length);
+            } else if (registryKey.equals("dimension_type")) {
+                final RegistryEntry[] entries = wrapper.get(Type.REGISTRY_ENTRY_ARRAY, 0);
+                final Map<String, DimensionData> dimensionDataMap = new HashMap<>(entries.length);
+                for (int i = 0; i < entries.length; i++) {
+                    final RegistryEntry entry = entries[i];
+                    dimensionDataMap.put(entry.key(), new DimensionDataImpl(i, (CompoundTag) entry.tag()));
+                }
+                tracker(wrapper.user()).setDimensions(dimensionDataMap);
+            }
         };
     }
 
@@ -534,39 +596,41 @@ public abstract class EntityRewriter<T extends Protocol> extends RewriterBase<T>
 
     // ---------------------------------------------------------------------------
 
-    @Deprecated
-    protected @Nullable Metadata metaByIndex(int index, List<Metadata> metadataList) {
-        for (Metadata metadata : metadataList) {
-            if (metadata.id() == index) {
-                return metadata;
-            }
-        }
-        return null;
-    }
-
-    protected void rewriteParticle(Particle particle) {
+    public void rewriteParticle(UserConnection connection, Particle particle) {
         ParticleMappings mappings = protocol.getMappingData().getParticleMappings();
-        int id = particle.getId();
+        int id = particle.id();
         if (mappings.isBlockParticle(id)) {
-            Particle.ParticleData data = particle.getArguments().get(0);
-            data.setValue(protocol.getMappingData().getNewBlockStateId(data.get()));
+            Particle.ParticleData<Integer> data = particle.getArgument(0);
+            data.setValue(protocol.getMappingData().getNewBlockStateId(data.getValue()));
         } else if (mappings.isItemParticle(id) && protocol.getItemRewriter() != null) {
-            Particle.ParticleData data = particle.getArguments().get(0);
-            Item item = data.get();
-            protocol.getItemRewriter().handleItemToClient(item);
+            Particle.ParticleData<Item> data = particle.getArgument(0);
+            ItemRewriter<?> itemRewriter = protocol.getItemRewriter();
+            Item item = itemRewriter.handleItemToClient(connection, data.getValue());
+            if (itemRewriter.mappedItemType() != null && itemRewriter.itemType() != itemRewriter.mappedItemType()) {
+                // Replace the type
+                particle.set(0, itemRewriter.mappedItemType(), item);
+            } else {
+                data.setValue(item);
+            }
         }
 
         particle.setId(protocol.getMappingData().getNewParticleId(id));
+    }
+
+    public void rewriteParticle(PacketWrapper wrapper, Type<Particle> from, Type<Particle> to) throws Exception {
+        final Particle particle = wrapper.read(from);
+        rewriteParticle(wrapper.user(), particle);
+        wrapper.write(to, particle);
     }
 
     private void logException(Exception e, @Nullable EntityType type, List<Metadata> metadataList, Metadata metadata) {
         if (!Via.getConfig().isSuppressMetadataErrors() || Via.getManager().isDebug()) {
             Logger logger = Via.getPlatform().getLogger();
             logger.severe("An error occurred in metadata handler " + this.getClass().getSimpleName()
-                    + " for " + (type != null ? type.name() : "untracked") + " entity type: " + metadata);
+                + " for " + (type != null ? type.name() : "untracked") + " entity type: " + metadata);
             logger.severe(metadataList.stream().sorted(Comparator.comparingInt(Metadata::id))
-                    .map(Metadata::toString).collect(Collectors.joining("\n", "Full metadata: ", "")));
-            e.printStackTrace();
+                .map(Metadata::toString).collect(Collectors.joining("\n", "Full metadata: ", "")));
+            logger.log(Level.SEVERE, "Error: ", e);
         }
     }
 }

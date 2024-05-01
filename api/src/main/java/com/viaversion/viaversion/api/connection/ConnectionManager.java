@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2022 ViaVersion and contributors
+ * Copyright (C) 2016-2024 ViaVersion and contributors
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -22,11 +22,10 @@
  */
 package com.viaversion.viaversion.api.connection;
 
-import org.checkerframework.checker.nullness.qual.Nullable;
-
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import org.checkerframework.checker.nullness.qual.Nullable;
 
 /**
  * Handles injected UserConnections
@@ -66,7 +65,7 @@ public interface ConnectionManager {
 
     /**
      * Returns the UUID from the frontend connection to this proxy server
-     * Returns null when there isn't a server or this connection isn't frontend or it doesn't have an id
+     * Returns null when there isn't a server or this connection isn't frontend, or it doesn't have an id
      * When ViaVersion is reloaded, this method may not return some players.
      * May not return ProtocolSupport players.
      * <p>

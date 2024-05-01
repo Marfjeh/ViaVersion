@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2022 ViaVersion and contributors
+ * Copyright (C) 2016-2024 ViaVersion and contributors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -19,10 +19,10 @@ package com.viaversion.viaversion.bukkit.platform;
 
 import com.viaversion.viaversion.bukkit.handlers.BukkitChannelInitializer;
 import io.netty.channel.Channel;
-import net.kyori.adventure.key.Key;
-
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
+import net.kyori.adventure.key.Key;
+import org.bukkit.Bukkit;
 
 public final class PaperViaInjector {
     public static final boolean PAPER_INJECTION_METHOD = hasPaperInjectionMethod();
@@ -30,6 +30,14 @@ public final class PaperViaInjector {
     public static final boolean PAPER_PACKET_LIMITER = hasPacketLimiter();
 
     private PaperViaInjector() {
+    }
+
+    public static int getServerProtocolVersion() {
+        if (!PaperViaInjector.PAPER_PROTOCOL_METHOD) {
+            throw new UnsupportedOperationException("Paper method not available");
+        }
+        //noinspection deprecation
+        return Bukkit.getUnsafe().getProtocolVersion();
     }
 
     public static void setPaperChannelInitializeListener() throws ReflectiveOperationException {
@@ -59,7 +67,7 @@ public final class PaperViaInjector {
         try {
             Class.forName("org.bukkit.UnsafeValues").getDeclaredMethod("getProtocolVersion");
             return true;
-        } catch (ReflectiveOperationException e) {
+        } catch (final ClassNotFoundException | NoSuchMethodException e) {
             return false;
         }
     }
@@ -69,14 +77,14 @@ public final class PaperViaInjector {
     }
 
     private static boolean hasPacketLimiter() {
-        return hasClass("com.destroystokyo.paper.PaperConfig$PacketLimit") || hasClass("io.papermc.paper.PaperConfig$PacketLimit");
+        return hasClass("com.destroystokyo.paper.PaperConfig$PacketLimit") || hasClass("io.papermc.paper.configuration.GlobalConfiguration$PacketLimiter");
     }
 
-    private static boolean hasClass(final String className) {
+    public static boolean hasClass(final String className) {
         try {
             Class.forName(className);
             return true;
-        } catch (ReflectiveOperationException e) {
+        } catch (final ClassNotFoundException e) {
             return false;
         }
     }

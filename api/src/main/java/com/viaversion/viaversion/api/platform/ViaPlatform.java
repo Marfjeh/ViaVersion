@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2022 ViaVersion and contributors
+ * Copyright (C) 2016-2024 ViaVersion and contributors
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -23,12 +23,12 @@
 package com.viaversion.viaversion.api.platform;
 
 import com.google.gson.JsonObject;
+import com.viaversion.viaversion.api.Via;
 import com.viaversion.viaversion.api.ViaAPI;
 import com.viaversion.viaversion.api.command.ViaCommandSender;
 import com.viaversion.viaversion.api.configuration.ConfigurationProvider;
 import com.viaversion.viaversion.api.configuration.ViaVersionConfig;
 import com.viaversion.viaversion.api.connection.UserConnection;
-
 import java.io.File;
 import java.util.Collection;
 import java.util.Collections;
@@ -88,6 +88,15 @@ public interface ViaPlatform<T> {
     PlatformTask runAsync(Runnable runnable);
 
     /**
+     * Run a task async at a repeating interval.
+     *
+     * @param runnable The task to run
+     * @param ticks    The interval to run it at
+     * @return The Task ID
+     */
+    PlatformTask runRepeatingAsync(Runnable runnable, long ticks);
+
+    /**
      * Run a task Sync
      *
      * @param runnable The task to run
@@ -96,24 +105,22 @@ public interface ViaPlatform<T> {
     PlatformTask runSync(Runnable runnable);
 
     /**
-     * Run a task Sync after a interval
-     * This must be only used after plugin enable.
+     * Runs a synchronous task after a delay in ticks.
      *
-     * @param runnable The task to run
-     * @param ticks    The interval to run it after
-     * @return The Task ID
+     * @param runnable task to run
+     * @param delay    delay in ticks to run it after
+     * @return created task
      */
-    PlatformTask runSync(Runnable runnable, long ticks);
+    PlatformTask runSync(Runnable runnable, long delay);
 
     /**
-     * Run a task at a repeating interval.
-     * Initial interval is the same as repeat.
+     * Runs a synchronous task at a repeating interval.
      *
-     * @param runnable The task to run
-     * @param ticks    The interval to run it at
-     * @return The Task ID
+     * @param runnable task to run
+     * @param period   period in ticks to run at
+     * @return created task
      */
-    PlatformTask runRepeatingSync(Runnable runnable, long ticks);
+    PlatformTask runRepeatingSync(Runnable runnable, long period);
 
     /**
      * Get the online players
@@ -174,13 +181,10 @@ public interface ViaPlatform<T> {
      */
     ViaVersionConfig getConf();
 
-    /**
-     * Get the backend configuration provider for this platform.
-     * (On some platforms this returns the same as getConf())
-     *
-     * @return The configuration provider
-     */
-    ConfigurationProvider getConfigurationProvider();
+    @Deprecated/*(forRemoval = true)*/
+    default ConfigurationProvider getConfigurationProvider() {
+        return Via.getManager().getConfigurationProvider();
+    }
 
     /**
      * Get ViaVersions's data folder.
@@ -202,12 +206,13 @@ public interface ViaPlatform<T> {
     JsonObject getDump();
 
     /**
-     * Get if older clients are allowed to be used using ViaVersion.
-     * (Only 1.9 on 1.9.2 server is supported by ViaVersion alone)
+     * Get if older clients are allowed using ViaVersion.
      *
      * @return True if allowed
      */
-    boolean isOldClientsAllowed();
+    default boolean isOldClientsAllowed() {
+        return true;
+    }
 
     /**
      * Returns an immutable collection of classes to be checked as unsupported software with their software name.

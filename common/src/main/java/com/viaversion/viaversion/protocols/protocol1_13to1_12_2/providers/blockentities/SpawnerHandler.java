@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2022 ViaVersion and contributors
+ * Copyright (C) 2016-2024 ViaVersion and contributors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -26,13 +26,12 @@ import com.viaversion.viaversion.protocols.protocol1_13to1_12_2.providers.BlockE
 public class SpawnerHandler implements BlockEntityProvider.BlockEntityHandler {
     @Override
     public int transform(UserConnection user, CompoundTag tag) {
-        if (tag.contains("SpawnData") && tag.get("SpawnData") instanceof CompoundTag) {
-            CompoundTag data = tag.get("SpawnData");
-            if (data.contains("id") && data.get("id") instanceof StringTag) {
-                StringTag s = data.get("id");
-                s.setValue(EntityNameRewriter.rewrite(s.getValue()));
+        CompoundTag data = tag.getCompoundTag("SpawnData");
+        if (data != null) {
+            StringTag id = data.getStringTag("id");
+            if (id != null) {
+                id.setValue(EntityNameRewriter.rewrite(id.getValue()));
             }
-
         }
 
         // Always return -1 because the block is still the same id

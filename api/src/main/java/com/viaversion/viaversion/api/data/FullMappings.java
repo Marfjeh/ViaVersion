@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2022 ViaVersion and contributors
+ * Copyright (C) 2016-2024 ViaVersion and contributors
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -27,9 +27,7 @@ import org.checkerframework.checker.nullness.qual.Nullable;
 /**
  * Mappings containing the full string identifier mappings.
  */
-public interface FullMappings {
-
-    Mappings mappings();
+public interface FullMappings extends BiMappings {
 
     /**
      * Returns the unmapped integer id for the given identifier, or -1 if not found.
@@ -51,17 +49,17 @@ public interface FullMappings {
      * Returns the unmapped string identifier for the given mapped id.
      *
      * @param id unmapped id
-     * @return unmapped string identifier
+     * @return unmapped string identifier, or null if out of bounds
      */
-    String identifier(int id);
+    @Nullable String identifier(int id);
 
     /**
      * Returns the mapped string identifier for the given mapped id.
      *
      * @param mappedId mapped id
-     * @return mapped string identifier
+     * @return mapped string identifier, or null if out of bounds
      */
-    String mappedIdentifier(int mappedId);
+    @Nullable String mappedIdentifier(int mappedId);
 
     /**
      * Returns the mapped string identifier for the given unmapped identifier.
@@ -70,4 +68,7 @@ public interface FullMappings {
      * @return mapped string identifier, or null if not found
      */
     @Nullable String mappedIdentifier(String identifier);
+
+    @Override
+    FullMappings inverse();
 }

@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2021 ViaVersion and contributors
+ * Copyright (C) 2016-2024 ViaVersion and contributors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -21,12 +21,11 @@ import com.google.gson.JsonObject;
 import com.viaversion.viaversion.ViaAPIBase;
 import com.viaversion.viaversion.api.ViaAPI;
 import com.viaversion.viaversion.api.command.ViaCommandSender;
-import com.viaversion.viaversion.api.configuration.ConfigurationProvider;
 import com.viaversion.viaversion.api.configuration.ViaVersionConfig;
 import com.viaversion.viaversion.api.platform.PlatformTask;
 import com.viaversion.viaversion.api.platform.ViaPlatform;
+import com.viaversion.viaversion.api.protocol.version.ProtocolVersion;
 import io.netty.buffer.ByteBuf;
-
 import java.io.File;
 import java.util.UUID;
 import java.util.logging.Logger;
@@ -62,17 +61,22 @@ public final class TestPlatform implements ViaPlatform {
     }
 
     @Override
+    public PlatformTask runRepeatingAsync(final Runnable runnable, final long ticks) {
+        return null;
+    }
+
+    @Override
     public PlatformTask runSync(Runnable runnable) {
         return null;
     }
 
     @Override
-    public PlatformTask runSync(Runnable runnable, long ticks) {
+    public PlatformTask runSync(Runnable runnable, long delay) {
         return null;
     }
 
     @Override
-    public PlatformTask runRepeatingSync(Runnable runnable, long ticks) {
+    public PlatformTask runRepeatingSync(Runnable runnable, long period) {
         return null;
     }
 
@@ -99,8 +103,8 @@ public final class TestPlatform implements ViaPlatform {
     public ViaAPI getApi() {
         return new ViaAPIBase() {
             @Override
-            public int getPlayerVersion(Object player) {
-                return 0;
+            public ProtocolVersion getPlayerProtocolVersion(Object player) {
+                return ProtocolVersion.unknown;
             }
 
             @Override
@@ -115,11 +119,6 @@ public final class TestPlatform implements ViaPlatform {
     }
 
     @Override
-    public ConfigurationProvider getConfigurationProvider() {
-        return null;
-    }
-
-    @Override
     public File getDataFolder() {
         return null;
     }
@@ -131,11 +130,6 @@ public final class TestPlatform implements ViaPlatform {
     @Override
     public JsonObject getDump() {
         return null;
-    }
-
-    @Override
-    public boolean isOldClientsAllowed() {
-        return false;
     }
 
     @Override

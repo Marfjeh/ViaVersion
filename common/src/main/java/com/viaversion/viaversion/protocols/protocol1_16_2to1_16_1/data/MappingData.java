@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2022 ViaVersion and contributors
+ * Copyright (C) 2016-2024 ViaVersion and contributors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -19,15 +19,9 @@ package com.viaversion.viaversion.protocols.protocol1_16_2to1_16_1.data;
 
 import com.github.steveice10.opennbt.tag.builtin.CompoundTag;
 import com.github.steveice10.opennbt.tag.builtin.ListTag;
-import com.github.steveice10.opennbt.tag.builtin.StringTag;
-import com.github.steveice10.opennbt.tag.builtin.Tag;
-import com.google.gson.JsonObject;
-import com.viaversion.viaversion.api.Via;
 import com.viaversion.viaversion.api.data.MappingDataBase;
 import com.viaversion.viaversion.api.data.MappingDataLoader;
-import com.viaversion.viaversion.api.minecraft.nbt.BinaryTagIO;
-
-import java.io.IOException;
+import com.viaversion.viaversion.util.TagUtil;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -36,25 +30,19 @@ public class MappingData extends MappingDataBase {
     private CompoundTag dimensionRegistry;
 
     public MappingData() {
-        super("1.16", "1.16.2", true);
+        super("1.16", "1.16.2");
     }
 
     @Override
-    public void loadExtras(JsonObject oldMappings, JsonObject newMappings, JsonObject diffMappings) {
-        try {
-            dimensionRegistry = BinaryTagIO.readCompressedInputStream(MappingDataLoader.getResource("dimension-registry-1.16.2.nbt"));
-        } catch (IOException e) {
-            Via.getPlatform().getLogger().severe("Error loading dimension registry:");
-            e.printStackTrace();
-        }
+    public void loadExtras(final CompoundTag data) {
+        dimensionRegistry = MappingDataLoader.INSTANCE.loadNBTFromFile("dimension-registry-1.16.2.nbt");
 
         // Data of each dimension
-        ListTag dimensions = ((CompoundTag) dimensionRegistry.get("minecraft:dimension_type")).get("value");
-        for (Tag dimension : dimensions) {
-            CompoundTag dimensionCompound = (CompoundTag) dimension;
+        final ListTag<CompoundTag> dimensions = TagUtil.getRegistryEntries(dimensionRegistry, "dimension_type");
+        for (final CompoundTag dimension : dimensions) {
             // Copy with an empty name
-            CompoundTag dimensionData = new CompoundTag(((CompoundTag) dimensionCompound.get("element")).getValue());
-            dimensionDataMap.put(((StringTag) dimensionCompound.get("name")).getValue(), dimensionData);
+            final CompoundTag dimensionData = dimension.getCompoundTag("element").copy();
+            dimensionDataMap.put(dimension.getStringTag("name").getValue(), dimensionData);
         }
     }
 
@@ -63,6 +51,6 @@ public class MappingData extends MappingDataBase {
     }
 
     public CompoundTag getDimensionRegistry() {
-        return dimensionRegistry.clone();
+        return dimensionRegistry.copy();
     }
 }

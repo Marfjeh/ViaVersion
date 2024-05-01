@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2022 ViaVersion and contributors
+ * Copyright (C) 2016-2024 ViaVersion and contributors
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -25,16 +25,17 @@ package com.viaversion.viaversion.api.type.types.version;
 import com.viaversion.viaversion.api.minecraft.chunks.ChunkSection;
 import com.viaversion.viaversion.api.minecraft.metadata.Metadata;
 import com.viaversion.viaversion.api.type.Type;
-import com.viaversion.viaversion.api.type.types.minecraft.MetaListType;
-
+import com.viaversion.viaversion.api.type.types.chunk.ChunkSectionType1_8;
+import com.viaversion.viaversion.api.type.types.metadata.MetaListType;
+import com.viaversion.viaversion.api.type.types.metadata.MetadataType1_8;
 import java.util.List;
 
-public class Types1_8 {
+public final class Types1_8 {
 
     /**
      * Metadata type for 1.8
      */
-    public static final Type<Metadata> METADATA = new Metadata1_8Type();
+    public static final Type<Metadata> METADATA = new MetadataType1_8();
     /**
      * Metadata list type for 1.8
      */

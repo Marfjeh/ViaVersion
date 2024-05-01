@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2022 ViaVersion and contributors
+ * Copyright (C) 2016-2024 ViaVersion and contributors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -17,85 +17,86 @@
  */
 package com.viaversion.viaversion.protocols.protocol1_13_1to1_13.packets;
 
-import com.viaversion.viaversion.api.protocol.packet.PacketWrapper;
-import com.viaversion.viaversion.api.protocol.remapper.PacketHandler;
-import com.viaversion.viaversion.api.protocol.remapper.PacketRemapper;
+import com.viaversion.viaversion.api.minecraft.item.Item;
+import com.viaversion.viaversion.api.protocol.remapper.PacketHandlers;
 import com.viaversion.viaversion.api.type.Type;
 import com.viaversion.viaversion.protocols.protocol1_13_1to1_13.Protocol1_13_1To1_13;
 import com.viaversion.viaversion.protocols.protocol1_13to1_12_2.ClientboundPackets1_13;
 import com.viaversion.viaversion.protocols.protocol1_13to1_12_2.ServerboundPackets1_13;
-import com.viaversion.viaversion.protocols.protocol1_13to1_12_2.data.RecipeRewriter1_13_2;
 import com.viaversion.viaversion.rewriter.ItemRewriter;
 import com.viaversion.viaversion.rewriter.RecipeRewriter;
+import com.viaversion.viaversion.util.Key;
 
-public class InventoryPackets extends ItemRewriter<Protocol1_13_1To1_13> {
+public class InventoryPackets extends ItemRewriter<ClientboundPackets1_13, ServerboundPackets1_13, Protocol1_13_1To1_13> {
 
     public InventoryPackets(Protocol1_13_1To1_13 protocol) {
-        super(protocol);
+        super(protocol, Type.ITEM1_13, Type.ITEM1_13_SHORT_ARRAY);
     }
 
     @Override
     public void registerPackets() {
-        registerSetSlot(ClientboundPackets1_13.SET_SLOT, Type.FLAT_ITEM);
-        registerWindowItems(ClientboundPackets1_13.WINDOW_ITEMS, Type.FLAT_ITEM_ARRAY);
-        registerAdvancements(ClientboundPackets1_13.ADVANCEMENTS, Type.FLAT_ITEM);
+        registerSetSlot(ClientboundPackets1_13.SET_SLOT);
+        registerWindowItems(ClientboundPackets1_13.WINDOW_ITEMS);
+        registerAdvancements(ClientboundPackets1_13.ADVANCEMENTS);
         registerSetCooldown(ClientboundPackets1_13.COOLDOWN);
 
-        protocol.registerClientbound(ClientboundPackets1_13.PLUGIN_MESSAGE, new PacketRemapper() {
+        protocol.registerClientbound(ClientboundPackets1_13.PLUGIN_MESSAGE, new PacketHandlers() {
             @Override
-            public void registerMap() {
+            public void register() {
                 map(Type.STRING); // Channel
-                handler(new PacketHandler() {
-                    @Override
-                    public void handle(PacketWrapper wrapper) throws Exception {
-                        String channel = wrapper.get(Type.STRING, 0);
-                        if (channel.equals("minecraft:trader_list") || channel.equals("trader_list")) {
-                            wrapper.passthrough(Type.INT); // Passthrough Window ID
+                handlerSoftFail(wrapper -> {
+                    String channel = Key.namespaced(wrapper.get(Type.STRING, 0));
+                    if (channel.equals("minecraft:trader_list")) {
+                        wrapper.passthrough(Type.INT); // Passthrough Window ID
 
-                            int size = wrapper.passthrough(Type.UNSIGNED_BYTE);
-                            for (int i = 0; i < size; i++) {
-                                // Input Item
-                                handleItemToClient(wrapper.passthrough(Type.FLAT_ITEM));
-                                // Output Item
-                                handleItemToClient(wrapper.passthrough(Type.FLAT_ITEM));
+                        int size = wrapper.passthrough(Type.UNSIGNED_BYTE);
+                        for (int i = 0; i < size; i++) {
+                            // Input Item
+                            handleItemToClient(wrapper.user(), wrapper.passthrough(Type.ITEM1_13));
+                            // Output Item
+                            handleItemToClient(wrapper.user(), wrapper.passthrough(Type.ITEM1_13));
 
-                                boolean secondItem = wrapper.passthrough(Type.BOOLEAN); // Has second item
-                                if (secondItem) {
-                                    // Second Item
-                                    handleItemToClient(wrapper.passthrough(Type.FLAT_ITEM));
-                                }
-
-                                wrapper.passthrough(Type.BOOLEAN); // Trade disabled
-                                wrapper.passthrough(Type.INT); // Number of tools uses
-                                wrapper.passthrough(Type.INT); // Maximum number of trade uses
+                            boolean secondItem = wrapper.passthrough(Type.BOOLEAN); // Has second item
+                            if (secondItem) {
+                                // Second Item
+                                handleItemToClient(wrapper.user(), wrapper.passthrough(Type.ITEM1_13));
                             }
+
+                            wrapper.passthrough(Type.BOOLEAN); // Trade disabled
+                            wrapper.passthrough(Type.INT); // Number of tools uses
+                            wrapper.passthrough(Type.INT); // Maximum number of trade uses
                         }
                     }
                 });
             }
         });
 
-        registerEntityEquipment(ClientboundPackets1_13.ENTITY_EQUIPMENT, Type.FLAT_ITEM);
+        registerEntityEquipment(ClientboundPackets1_13.ENTITY_EQUIPMENT);
 
-        RecipeRewriter recipeRewriter = new RecipeRewriter1_13_2(protocol);
-        protocol.registerClientbound(ClientboundPackets1_13.DECLARE_RECIPES, new PacketRemapper() {
+        RecipeRewriter<ClientboundPackets1_13> recipeRewriter = new RecipeRewriter<ClientboundPackets1_13>(protocol) {
             @Override
-            public void registerMap() {
-                handler(wrapper -> {
-                    int size = wrapper.passthrough(Type.VAR_INT);
-                    for (int i = 0; i < size; i++) {
-                        // First id, then type
-                        String id = wrapper.passthrough(Type.STRING);
-                        String type = wrapper.passthrough(Type.STRING).replace("minecraft:", "");
-                        recipeRewriter.handle(wrapper, type);
-                    }
-                });
+            protected Type<Item> itemType() {
+                return Type.ITEM1_13;
+            }
+
+            @Override
+            protected Type<Item[]> itemArrayType() {
+                return Type.ITEM1_13_ARRAY;
+            }
+        };
+        protocol.registerClientbound(ClientboundPackets1_13.DECLARE_RECIPES, wrapper -> {
+            int size = wrapper.passthrough(Type.VAR_INT);
+            for (int i = 0; i < size; i++) {
+                // First id, then type
+                wrapper.passthrough(Type.STRING); // Id
+                String type = Key.stripMinecraftNamespace(wrapper.passthrough(Type.STRING));
+                recipeRewriter.handleRecipeType(wrapper, type);
             }
         });
 
-        registerClickWindow(ServerboundPackets1_13.CLICK_WINDOW, Type.FLAT_ITEM);
-        registerCreativeInvAction(ServerboundPackets1_13.CREATIVE_INVENTORY_ACTION, Type.FLAT_ITEM);
+        registerClickWindow(ServerboundPackets1_13.CLICK_WINDOW);
+        registerCreativeInvAction(ServerboundPackets1_13.CREATIVE_INVENTORY_ACTION);
 
-        registerSpawnParticle(ClientboundPackets1_13.SPAWN_PARTICLE, Type.FLAT_ITEM, Type.FLOAT);
+        registerSpawnParticle(ClientboundPackets1_13.SPAWN_PARTICLE, Type.FLOAT);
     }
 }

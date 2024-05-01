@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2022 ViaVersion and contributors
+ * Copyright (C) 2016-2024 ViaVersion and contributors
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -81,11 +81,9 @@ public class PacketTracker {
         if (connection.isClientSide()) return false; // Don't apply PPS limiting for client-side
         ViaVersionConfig conf = Via.getConfig();
         // Max PPS Checker
-        if (conf.getMaxPPS() > 0) {
-            if (packetsPerSecond >= conf.getMaxPPS()) {
-                connection.disconnect(conf.getMaxPPSKickMessage().replace("%pps", Long.toString(packetsPerSecond)));
-                return true; // don't send current packet
-            }
+        if (conf.getMaxPPS() > 0 && packetsPerSecond >= conf.getMaxPPS()) {
+            connection.disconnect(conf.getMaxPPSKickMessage().replace("%pps", Long.toString(packetsPerSecond)));
+            return true; // don't send current packet
         }
 
         // Tracking PPS Checker

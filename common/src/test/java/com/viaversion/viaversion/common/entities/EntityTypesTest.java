@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2021 ViaVersion and contributors
+ * Copyright (C) 2016-2024 ViaVersion and contributors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -17,16 +17,15 @@
  */
 package com.viaversion.viaversion.common.entities;
 
+import com.viaversion.viaversion.api.minecraft.entities.EntityType;
+import com.viaversion.viaversion.api.minecraft.entities.EntityTypes1_14;
+import com.viaversion.viaversion.api.minecraft.entities.EntityTypes1_15;
+import com.viaversion.viaversion.api.minecraft.entities.EntityTypes1_16;
+import com.viaversion.viaversion.api.minecraft.entities.EntityTypes1_16_2;
+import com.viaversion.viaversion.api.minecraft.entities.EntityTypes1_17;
+import java.util.function.Function;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
-import com.viaversion.viaversion.api.minecraft.entities.Entity1_14Types;
-import com.viaversion.viaversion.api.minecraft.entities.Entity1_15Types;
-import com.viaversion.viaversion.api.minecraft.entities.Entity1_16Types;
-import com.viaversion.viaversion.api.minecraft.entities.Entity1_16_2Types;
-import com.viaversion.viaversion.api.minecraft.entities.Entity1_17Types;
-import com.viaversion.viaversion.api.minecraft.entities.EntityType;
-
-import java.util.function.Function;
 
 /**
  * Test to make sure the array storage approach of entity types works correctly.
@@ -35,11 +34,11 @@ public class EntityTypesTest {
 
     @Test
     void testArrayOrder() {
-        testArrayOrder(Entity1_14Types.values(), Entity1_14Types::getTypeFromId);
-        testArrayOrder(Entity1_15Types.values(), Entity1_15Types::getTypeFromId);
-        testArrayOrder(Entity1_16Types.values(), Entity1_16Types::getTypeFromId);
-        testArrayOrder(Entity1_16_2Types.values(), Entity1_16_2Types::getTypeFromId);
-        testArrayOrder(Entity1_17Types.values(), Entity1_17Types::getTypeFromId);
+        testArrayOrder(EntityTypes1_14.values(), EntityTypes1_14::getTypeFromId);
+        testArrayOrder(EntityTypes1_15.values(), EntityTypes1_15::getTypeFromId);
+        testArrayOrder(EntityTypes1_16.values(), EntityTypes1_16::getTypeFromId);
+        testArrayOrder(EntityTypes1_16_2.values(), EntityTypes1_16_2::getTypeFromId);
+        testArrayOrder(EntityTypes1_17.values(), EntityTypes1_17::getTypeFromId);
         // Newer type enums are automatically filled using mappings
     }
 

@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2022 ViaVersion and contributors
+ * Copyright (C) 2016-2024 ViaVersion and contributors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -17,19 +17,20 @@
  */
 package com.viaversion.viaversion.bukkit.listeners.protocol1_9to1_8;
 
+import com.viaversion.viaversion.api.Via;
+import com.viaversion.viaversion.api.connection.UserConnection;
+import com.viaversion.viaversion.api.protocol.packet.PacketWrapper;
+import com.viaversion.viaversion.api.type.Type;
+import com.viaversion.viaversion.bukkit.listeners.ViaBukkitListener;
 import com.viaversion.viaversion.protocols.protocol1_9to1_8.ClientboundPackets1_9;
+import com.viaversion.viaversion.protocols.protocol1_9to1_8.Protocol1_9To1_8;
 import org.bukkit.World;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.plugin.Plugin;
-import com.viaversion.viaversion.api.protocol.packet.PacketWrapper;
-import com.viaversion.viaversion.api.Via;
-import com.viaversion.viaversion.api.connection.UserConnection;
-import com.viaversion.viaversion.api.type.Type;
-import com.viaversion.viaversion.bukkit.listeners.ViaBukkitListener;
-import com.viaversion.viaversion.protocols.protocol1_9to1_8.Protocol1_9To1_8;
+import java.util.logging.Level;
 
 public class DeathListener extends ViaBukkitListener {
 
@@ -53,23 +54,20 @@ public class DeathListener extends ViaBukkitListener {
     }
 
     private void sendPacket(final Player p, final String msg) {
-        Via.getPlatform().runSync(new Runnable() {
-            @Override
-            public void run() {
-                // If online
-                UserConnection userConnection = getUserConnection(p);
-                if (userConnection != null) {
-                    PacketWrapper wrapper = PacketWrapper.create(ClientboundPackets1_9.COMBAT_EVENT, null, userConnection);
-                    try {
-                        wrapper.write(Type.VAR_INT, 2); // Event - Entity dead
-                        wrapper.write(Type.VAR_INT, p.getEntityId()); // Player ID
-                        wrapper.write(Type.INT, p.getEntityId()); // Entity ID
-                        Protocol1_9To1_8.FIX_JSON.write(wrapper, msg); // Message
+        Via.getPlatform().runSync(() -> {
+            // If online
+            UserConnection userConnection = getUserConnection(p);
+            if (userConnection != null) {
+                PacketWrapper wrapper = PacketWrapper.create(ClientboundPackets1_9.COMBAT_EVENT, null, userConnection);
+                try {
+                    wrapper.write(Type.VAR_INT, 2); // Event - Entity dead
+                    wrapper.write(Type.VAR_INT, p.getEntityId()); // Player ID
+                    wrapper.write(Type.INT, p.getEntityId()); // Entity ID
+                    Protocol1_9To1_8.STRING_TO_JSON.write(wrapper, msg); // Message
 
-                        wrapper.scheduleSend(Protocol1_9To1_8.class);
-                    } catch (Exception e) {
-                        e.printStackTrace();
-                    }
+                    wrapper.scheduleSend(Protocol1_9To1_8.class);
+                } catch (Exception e) {
+                    Via.getPlatform().getLogger().log(Level.WARNING, "Failed to send death message", e);
                 }
             }
         });

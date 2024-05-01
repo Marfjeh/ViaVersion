@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2022 ViaVersion and contributors
+ * Copyright (C) 2016-2024 ViaVersion and contributors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -23,13 +23,6 @@ import com.viaversion.viaversion.api.connection.ProtocolInfo;
 import com.viaversion.viaversion.api.connection.UserConnection;
 import com.viaversion.viaversion.api.protocol.version.ProtocolVersion;
 import com.viaversion.viaversion.bukkit.listeners.ViaBukkitListener;
-import org.bukkit.entity.EntityType;
-import org.bukkit.entity.Player;
-import org.bukkit.event.EventHandler;
-import org.bukkit.event.entity.EntityDamageEvent;
-import org.bukkit.event.player.PlayerQuitEvent;
-import org.bukkit.event.player.PlayerToggleSneakEvent;
-
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.HashSet;
@@ -37,6 +30,13 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.WeakHashMap;
+import java.util.logging.Level;
+import org.bukkit.entity.EntityType;
+import org.bukkit.entity.Player;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.entity.EntityDamageEvent;
+import org.bukkit.event.player.PlayerQuitEvent;
+import org.bukkit.event.player.PlayerToggleSneakEvent;
 
 public class PlayerSneakListener extends ViaBukkitListener {
     private static final float STANDING_HEIGHT = 1.8F;
@@ -72,15 +72,12 @@ public class PlayerSneakListener extends ViaBukkitListener {
 
 
         // From 1.9 upwards the server hitbox is set in every entity tick, so we have to reset it everytime
-        if (Via.getAPI().getServerVersion().lowestSupportedVersion() >= ProtocolVersion.v1_9.getVersion()) {
+        if (Via.getAPI().getServerVersion().lowestSupportedProtocolVersion().newerThan(ProtocolVersion.v1_8)) {
             sneaking = new WeakHashMap<>();
             useCache = true;
-            plugin.getServer().getScheduler().runTaskTimer(plugin, new Runnable() {
-                @Override
-                public void run() {
-                    for (Map.Entry<Player, Boolean> entry : sneaking.entrySet()) {
-                        setHeight(entry.getKey(), entry.getValue() ? HEIGHT_1_14 : HEIGHT_1_9);
-                    }
+            plugin.getServer().getScheduler().runTaskTimer(plugin, () -> {
+                for (Map.Entry<Player, Boolean> entry : sneaking.entrySet()) {
+                    setHeight(entry.getKey(), entry.getValue() ? HEIGHT_1_14 : HEIGHT_1_9);
                 }
             }, 1, 1);
         }
@@ -99,8 +96,8 @@ public class PlayerSneakListener extends ViaBukkitListener {
         ProtocolInfo info = userConnection.getProtocolInfo();
         if (info == null) return;
 
-        int protocolVersion = info.getProtocolVersion();
-        if (is1_14Fix && protocolVersion >= ProtocolVersion.v1_14.getVersion()) {
+        ProtocolVersion protocolVersion = info.protocolVersion();
+        if (is1_14Fix && protocolVersion.newerThanOrEqualTo(ProtocolVersion.v1_14)) {
             setHeight(player, event.isSneaking() ? HEIGHT_1_14 : STANDING_HEIGHT);
             if (event.isSneaking())
                 sneakingUuids.add(player.getUniqueId());
@@ -112,7 +109,7 @@ public class PlayerSneakListener extends ViaBukkitListener {
                 sneaking.put(player, true);
             else
                 sneaking.remove(player);
-        } else if (is1_9Fix && protocolVersion >= ProtocolVersion.v1_9.getVersion()) {
+        } else if (is1_9Fix && protocolVersion.newerThanOrEqualTo(ProtocolVersion.v1_9)) {
             setHeight(player, event.isSneaking() ? HEIGHT_1_9 : STANDING_HEIGHT);
             if (!useCache) return;
             if (event.isSneaking())
@@ -152,7 +149,7 @@ public class PlayerSneakListener extends ViaBukkitListener {
         try {
             setSize.invoke(getHandle.invoke(player), DEFAULT_WIDTH, height);
         } catch (IllegalAccessException | InvocationTargetException e) {
-            e.printStackTrace();
+            Via.getPlatform().getLogger().log(Level.SEVERE, "Failed to set player height", e);
         }
     }
 }

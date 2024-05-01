@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2022 ViaVersion and contributors
+ * Copyright (C) 2016-2024 ViaVersion and contributors
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -23,10 +23,11 @@
 package com.viaversion.viaversion.api.connection;
 
 import com.viaversion.viaversion.api.protocol.ProtocolPipeline;
+import com.viaversion.viaversion.api.protocol.packet.Direction;
 import com.viaversion.viaversion.api.protocol.packet.State;
-import org.checkerframework.checker.nullness.qual.Nullable;
-
+import com.viaversion.viaversion.api.protocol.version.ProtocolVersion;
 import java.util.UUID;
+import org.checkerframework.checker.nullness.qual.Nullable;
 
 public interface ProtocolInfo {
 
@@ -34,30 +35,95 @@ public interface ProtocolInfo {
      * Returns the protocol state the user is currently in.
      *
      * @return protocol state
+     * @deprecated server and client can be in different states, use {@link #getClientState()} or {@link #getServerState()}
      */
-    State getState();
-
-    void setState(State state);
+    @Deprecated/*(forRemoval = true)*/
+    default State getState() {
+        return this.getServerState();
+    }
 
     /**
-     * Returns the user's protocol version, or -1 if not set.
-     * This is set during the {@link State#HANDSHAKE} state.
+     * Returns the protocol state the client is currently in.
      *
-     * @return protocol version, or -1 if not set
+     * @return the client protocol state
      */
-    int getProtocolVersion();
-
-    void setProtocolVersion(int protocolVersion);
+    State getClientState();
 
     /**
-     * Returns the server protocol version the user is connected to, or -1 if not set.
+     * Returns the protocol state the server is currently in.
+     *
+     * @return the server protocol state
+     */
+    State getServerState();
+
+    /**
+     * Returns the protocol state for the given direction.
+     *
+     * @param direction protocol direction
+     * @return state for the given direction
+     */
+    default State getState(final Direction direction) {
+        // Return the state the packet is coming from
+        return direction == Direction.CLIENTBOUND ? this.getServerState() : this.getClientState();
+    }
+
+    /**
+     * Sets both client and server state.
+     *
+     * @param state the new protocol state
+     * @see #setClientState(State)
+     * @see #setServerState(State)
+     */
+    default void setState(final State state) {
+        this.setClientState(state);
+        this.setServerState(state);
+    }
+
+    /**
+     * Sets the client protocol state.
+     *
+     * @param clientState the new client protocol state
+     */
+    void setClientState(State clientState);
+
+    /**
+     * Sets the server protocol state.
+     *
+     * @param serverState the new server protocol state
+     */
+    void setServerState(State serverState);
+
+    /**
+     * Returns the user's protocol version, or null if not set.
      * This is set during the {@link State#HANDSHAKE} state.
      *
-     * @return server protocol version, or -1 if not set
+     * @return protocol version, may be unknown
+     * @see ProtocolVersion#isKnown()
      */
-    int getServerProtocolVersion();
+    ProtocolVersion protocolVersion();
 
-    void setServerProtocolVersion(int serverProtocolVersion);
+    void setProtocolVersion(ProtocolVersion protocolVersion);
+
+    /**
+     * Returns the server protocol version the user is connected to.
+     * This is set during the {@link State#HANDSHAKE} state.
+     *
+     * @return the server protocol version the user is connected to, may be unknown
+     * @see ProtocolVersion#isKnown()
+     */
+    ProtocolVersion serverProtocolVersion();
+
+    void setServerProtocolVersion(ProtocolVersion protocolVersion);
+
+    @Deprecated
+    default int getProtocolVersion() {
+        return protocolVersion() != null ? protocolVersion().getVersion() : -1;
+    }
+
+    @Deprecated
+    default int getServerProtocolVersion() {
+        return serverProtocolVersion() != null ? serverProtocolVersion().getVersion() : -1;
+    }
 
     /**
      * Returns the username associated with this connection.
@@ -93,5 +159,6 @@ public interface ProtocolInfo {
      *
      * @return user connection
      */
+    @Deprecated/*(forRemoval = true)*/
     UserConnection getUser();
 }

@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2022 ViaVersion and contributors
+ * Copyright (C) 2016-2024 ViaVersion and contributors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -18,7 +18,7 @@
 package com.viaversion.viaversion.protocols.protocol1_13to1_12_2.providers;
 
 import com.github.steveice10.opennbt.tag.builtin.CompoundTag;
-import com.github.steveice10.opennbt.tag.builtin.Tag;
+import com.github.steveice10.opennbt.tag.builtin.StringTag;
 import com.viaversion.viaversion.api.Via;
 import com.viaversion.viaversion.api.connection.UserConnection;
 import com.viaversion.viaversion.api.minecraft.Position;
@@ -33,7 +33,6 @@ import com.viaversion.viaversion.protocols.protocol1_13to1_12_2.providers.blocke
 import com.viaversion.viaversion.protocols.protocol1_13to1_12_2.providers.blockentities.FlowerPotHandler;
 import com.viaversion.viaversion.protocols.protocol1_13to1_12_2.providers.blockentities.SkullHandler;
 import com.viaversion.viaversion.protocols.protocol1_13to1_12_2.providers.blockentities.SpawnerHandler;
-
 import java.util.HashMap;
 import java.util.Map;
 
@@ -60,14 +59,13 @@ public class BlockEntityProvider implements Provider {
      * @throws Exception Gotta throw that exception
      */
     public int transform(UserConnection user, Position position, CompoundTag tag, boolean sendUpdate) throws Exception {
-        Tag idTag = tag.get("id");
+        StringTag idTag = tag.getStringTag("id");
         if (idTag == null) return -1;
 
-        String id = (String) idTag.getValue();
-        BlockEntityHandler handler = handlers.get(id);
+        BlockEntityHandler handler = handlers.get(idTag.getValue());
         if (handler == null) {
             if (Via.getManager().isDebug()) {
-                Via.getPlatform().getLogger().warning("Unhandled BlockEntity " + id + " full tag: " + tag);
+                Via.getPlatform().getLogger().warning("Unhandled BlockEntity " + idTag.getValue() + " full tag: " + tag);
             }
             return -1;
         }
@@ -83,13 +81,15 @@ public class BlockEntityProvider implements Provider {
 
     private void sendBlockChange(UserConnection user, Position position, int blockId) throws Exception {
         PacketWrapper wrapper = PacketWrapper.create(ClientboundPackets1_13.BLOCK_CHANGE, null, user);
-        wrapper.write(Type.POSITION, position);
+        wrapper.write(Type.POSITION1_8, position);
         wrapper.write(Type.VAR_INT, blockId);
 
         wrapper.send(Protocol1_13To1_12_2.class);
     }
 
+    @FunctionalInterface
     public interface BlockEntityHandler {
+
         int transform(UserConnection user, CompoundTag tag);
     }
 }

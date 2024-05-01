@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2022 ViaVersion and contributors
+ * Copyright (C) 2016-2024 ViaVersion and contributors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -19,7 +19,6 @@ package com.viaversion.viaversion.velocity.platform;
 
 import com.viaversion.viaversion.api.protocol.version.ProtocolVersion;
 import com.viaversion.viaversion.configuration.AbstractViaConfig;
-
 import java.io.File;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -28,14 +27,13 @@ import java.util.List;
 import java.util.Map;
 
 public class VelocityViaConfig extends AbstractViaConfig {
-    private static final List<String> UNSUPPORTED = Arrays.asList("nms-player-ticking", "item-cache", "anti-xray-patch", "quick-move-action-fix", "bungee-ping-interval", "bungee-ping-save", "bungee-servers", "blockconnection-method", "change-1_9-hitbox", "change-1_14-hitbox");
+    private static final List<String> UNSUPPORTED = Arrays.asList("nms-player-ticking", "item-cache", "quick-move-action-fix", "bungee-ping-interval", "bungee-ping-save", "bungee-servers", "blockconnection-method", "change-1_9-hitbox", "change-1_14-hitbox");
     private int velocityPingInterval;
     private boolean velocityPingSave;
     private Map<String, Integer> velocityServerProtocols;
 
-    public VelocityViaConfig(File configFile) {
-        super(new File(configFile, "config.yml"));
-        reloadConfig();
+    public VelocityViaConfig(File folder) {
+        super(new File(folder, "config.yml"));
     }
 
     @Override
@@ -43,7 +41,7 @@ public class VelocityViaConfig extends AbstractViaConfig {
         super.loadFields();
         velocityPingInterval = getInt("velocity-ping-interval", 60);
         velocityPingSave = getBoolean("velocity-ping-save", true);
-        velocityServerProtocols = get("velocity-servers", Map.class, new HashMap<>());
+        velocityServerProtocols = get("velocity-servers", new HashMap<>());
     }
 
     @Override

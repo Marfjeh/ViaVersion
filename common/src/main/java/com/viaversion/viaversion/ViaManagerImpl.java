@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2022 ViaVersion and contributors
+ * Copyright (C) 2016-2024 ViaVersion and contributors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -19,7 +19,9 @@ package com.viaversion.viaversion;
 
 import com.viaversion.viaversion.api.Via;
 import com.viaversion.viaversion.api.ViaManager;
+import com.viaversion.viaversion.api.configuration.ConfigurationProvider;
 import com.viaversion.viaversion.api.connection.ConnectionManager;
+import com.viaversion.viaversion.api.data.MappingDataLoader;
 import com.viaversion.viaversion.api.debug.DebugHandler;
 import com.viaversion.viaversion.api.platform.PlatformTask;
 import com.viaversion.viaversion.api.platform.UnsupportedSoftware;
@@ -30,38 +32,43 @@ import com.viaversion.viaversion.api.platform.providers.ViaProviders;
 import com.viaversion.viaversion.api.protocol.ProtocolManager;
 import com.viaversion.viaversion.api.protocol.version.ProtocolVersion;
 import com.viaversion.viaversion.api.protocol.version.ServerProtocolVersion;
+import com.viaversion.viaversion.api.scheduler.Scheduler;
 import com.viaversion.viaversion.commands.ViaCommandHandler;
+import com.viaversion.viaversion.configuration.ConfigurationProviderImpl;
 import com.viaversion.viaversion.connection.ConnectionManagerImpl;
 import com.viaversion.viaversion.debug.DebugHandlerImpl;
 import com.viaversion.viaversion.protocol.ProtocolManagerImpl;
 import com.viaversion.viaversion.protocol.ServerProtocolVersionRange;
 import com.viaversion.viaversion.protocol.ServerProtocolVersionSingleton;
-import com.viaversion.viaversion.protocols.protocol1_13to1_12_2.TabCompleteThread;
+import com.viaversion.viaversion.protocols.protocol1_13to1_12_2.task.TabCompleteThread;
 import com.viaversion.viaversion.protocols.protocol1_9to1_8.ViaIdleThread;
+import com.viaversion.viaversion.scheduler.TaskScheduler;
 import com.viaversion.viaversion.update.UpdateUtil;
-import it.unimi.dsi.fastutil.ints.IntSortedSet;
-
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.SortedSet;
+import java.util.logging.Level;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public class ViaManagerImpl implements ViaManager {
     private final ProtocolManagerImpl protocolManager = new ProtocolManagerImpl();
     private final ConnectionManager connectionManager = new ConnectionManagerImpl();
+    private final ConfigurationProvider configurationProvider = new ConfigurationProviderImpl();
     private final DebugHandler debugHandler = new DebugHandlerImpl();
     private final ViaProviders providers = new ViaProviders();
+    private final Scheduler scheduler = new TaskScheduler();
     private final ViaPlatform<?> platform;
     private final ViaInjector injector;
     private final ViaCommandHandler commandHandler;
     private final ViaPlatformLoader loader;
     private final Set<String> subPlatforms = new HashSet<>();
     private List<Runnable> enableListeners = new ArrayList<>();
-    private PlatformTask mappingLoadingTask;
-    private boolean debug;
+    private PlatformTask<?> mappingLoadingTask;
+    private boolean initialized;
 
     public ViaManagerImpl(ViaPlatform<?> platform, ViaInjector injector, ViaCommandHandler commandHandler, ViaPlatformLoader loader) {
         this.platform = platform;
@@ -75,19 +82,19 @@ public class ViaManagerImpl implements ViaManager {
     }
 
     public void init() {
+        configurationProvider.register(platform.getConf());
+
         if (System.getProperty("ViaVersion") != null) {
             // Reload?
             platform.onReload();
-        }
-        // Check for updates
-        if (platform.getConf().isCheckForUpdates()) {
-            UpdateUtil.sendUpdateMessage();
         }
 
         // Load supported protocol versions if we can
         if (!injector.lateProtocolVersionSetting()) {
             loadServerProtocol();
         }
+
+        MappingDataLoader.loadGlobalIdentifiers();
 
         // Register protocols
         protocolManager.registerProtocols();
@@ -96,8 +103,7 @@ public class ViaManagerImpl implements ViaManager {
         try {
             injector.inject();
         } catch (Exception e) {
-            platform.getLogger().severe("ViaVersion failed to inject:");
-            e.printStackTrace();
+            platform.getLogger().log(Level.SEVERE, "ViaVersion failed to inject:", e);
             return;
         }
 
@@ -109,11 +115,15 @@ public class ViaManagerImpl implements ViaManager {
         }
         enableListeners = null;
 
-        // If successful
-        platform.runSync(this::onServerLoaded);
+        initialized = true;
     }
 
     public void onServerLoaded() {
+        // Check for updates
+        if (platform.getConf().isCheckForUpdates()) {
+            UpdateUtil.sendUpdateMessage();
+        }
+
         if (!protocolManager.getServerProtocolVersion().isKnown()) {
             // Try again
             loadServerProtocol();
@@ -123,22 +133,22 @@ public class ViaManagerImpl implements ViaManager {
         ServerProtocolVersion protocolVersion = protocolManager.getServerProtocolVersion();
         if (protocolVersion.isKnown()) {
             if (platform.isProxy()) {
-                platform.getLogger().info("ViaVersion detected lowest supported version by the proxy: " + ProtocolVersion.getProtocol(protocolVersion.lowestSupportedVersion()));
-                platform.getLogger().info("Highest supported version by the proxy: " + ProtocolVersion.getProtocol(protocolVersion.highestSupportedVersion()));
-                if (debug) {
-                    platform.getLogger().info("Supported version range: " + Arrays.toString(protocolVersion.supportedVersions().toArray(new int[0])));
+                platform.getLogger().info("ViaVersion detected lowest supported version by the proxy: " + protocolVersion.lowestSupportedProtocolVersion());
+                platform.getLogger().info("Highest supported version by the proxy: " + protocolVersion.highestSupportedProtocolVersion());
+                if (debugHandler.enabled()) {
+                    platform.getLogger().info("Supported version range: " + Arrays.toString(protocolVersion.supportedProtocolVersions().toArray(new ProtocolVersion[0])));
                 }
             } else {
-                platform.getLogger().info("ViaVersion detected server version: " + ProtocolVersion.getProtocol(protocolVersion.highestSupportedVersion()));
+                platform.getLogger().info("ViaVersion detected server version: " + protocolVersion.highestSupportedProtocolVersion());
             }
 
             if (!protocolManager.isWorkingPipe()) {
                 platform.getLogger().warning("ViaVersion does not have any compatible versions for this server version!");
                 platform.getLogger().warning("Please remember that ViaVersion only adds support for versions newer than the server version.");
                 platform.getLogger().warning("If you need support for older versions you may need to use one or more ViaVersion addons too.");
-                platform.getLogger().warning("In that case please read the ViaVersion resource page carefully or use https://jo0001.github.io/ViaSetup");
+                platform.getLogger().warning("In that case please read the ViaVersion resource page carefully or use https://viaversion.com/setup");
                 platform.getLogger().warning("and if you're still unsure, feel free to join our Discord-Server for further assistance.");
-            } else if (protocolVersion.highestSupportedVersion() <= ProtocolVersion.v1_12_2.getVersion()) {
+            } else if (protocolVersion.highestSupportedProtocolVersion().olderThan(ProtocolVersion.v1_13)) {
                 platform.getLogger().warning("This version of Minecraft is extremely outdated and support for it has reached its end of life. "
                         + "You will still be able to run Via on this Minecraft version, but we are unlikely to provide any further fixes or help with problems specific to legacy Minecraft versions. "
                         + "Please consider updating to give your players a better experience and to avoid issues that have long been fixed.");
@@ -150,26 +160,23 @@ public class ViaManagerImpl implements ViaManager {
         // Check for unsupported plugins/software
         unsupportedSoftwareWarning();
 
-        // Load Listeners / Tasks
-        protocolManager.onServerLoaded();
-
         // Load Platform
         loader.load();
         // Common tasks
-        mappingLoadingTask = Via.getPlatform().runRepeatingSync(() -> {
-            if (protocolManager.checkForMappingCompletion()) {
+        mappingLoadingTask = Via.getPlatform().runRepeatingAsync(() -> {
+            if (protocolManager.checkForMappingCompletion() && mappingLoadingTask != null) {
                 mappingLoadingTask.cancel();
                 mappingLoadingTask = null;
             }
         }, 10L);
 
-        int serverProtocolVersion = protocolManager.getServerProtocolVersion().lowestSupportedVersion();
-        if (serverProtocolVersion < ProtocolVersion.v1_9.getVersion()) {
+        final ProtocolVersion serverProtocolVersion = protocolManager.getServerProtocolVersion().lowestSupportedProtocolVersion();
+        if (serverProtocolVersion.olderThan(ProtocolVersion.v1_9)) {
             if (Via.getConfig().isSimulatePlayerTick()) {
                 Via.getPlatform().runRepeatingSync(new ViaIdleThread(), 1L);
             }
         }
-        if (serverProtocolVersion < ProtocolVersion.v1_13.getVersion()) {
+        if (serverProtocolVersion.olderThan(ProtocolVersion.v1_13)) {
             if (Via.getConfig().get1_13TabCompleteDelay() > 0) {
                 Via.getPlatform().runRepeatingSync(new TabCompleteThread(), 1L);
             }
@@ -181,19 +188,18 @@ public class ViaManagerImpl implements ViaManager {
 
     private void loadServerProtocol() {
         try {
-            ProtocolVersion serverProtocolVersion = ProtocolVersion.getProtocol(injector.getServerProtocolVersion());
+            ProtocolVersion serverProtocolVersion = injector.getServerProtocolVersion();
             ServerProtocolVersion versionInfo;
             if (platform.isProxy()) {
-                IntSortedSet supportedVersions = injector.getServerProtocolVersions();
-                versionInfo = new ServerProtocolVersionRange(supportedVersions.firstInt(), supportedVersions.lastInt(), supportedVersions);
+                SortedSet<ProtocolVersion> supportedVersions = injector.getServerProtocolVersions();
+                versionInfo = new ServerProtocolVersionRange(supportedVersions.first(), supportedVersions.last(), supportedVersions);
             } else {
-                versionInfo = new ServerProtocolVersionSingleton(serverProtocolVersion.getVersion());
+                versionInfo = new ServerProtocolVersionSingleton(serverProtocolVersion);
             }
 
             protocolManager.setServerProtocol(versionInfo);
         } catch (Exception e) {
-            platform.getLogger().severe("ViaVersion failed to get the server protocol!");
-            e.printStackTrace();
+            platform.getLogger().log(Level.SEVERE, "ViaVersion failed to get the server protocol!", e);
         }
     }
 
@@ -203,15 +209,14 @@ public class ViaManagerImpl implements ViaManager {
         try {
             injector.uninject();
         } catch (Exception e) {
-            platform.getLogger().severe("ViaVersion failed to uninject:");
-            e.printStackTrace();
+            platform.getLogger().log(Level.SEVERE, "ViaVersion failed to uninject:", e);
         }
 
-        // Unload
         loader.unload();
+        scheduler.shutdown();
     }
 
-    private final void checkJavaVersion() { // Stolen from Paper
+    private void checkJavaVersion() { // Stolen from Paper
         String javaVersion = System.getProperty("java.version");
         Matcher matcher = Pattern.compile("(?:1\\.)?(\\d+)").matcher(javaVersion);
         if (!matcher.find()) {
@@ -224,21 +229,21 @@ public class ViaManagerImpl implements ViaManager {
         try {
             version = Integer.parseInt(versionString);
         } catch (NumberFormatException e) {
-            platform.getLogger().warning("Failed to determine Java version; could not parse: " + versionString);
-            e.printStackTrace();
+            platform.getLogger().log(Level.WARNING, "Failed to determine Java version; could not parse: " + versionString, e);
             return;
         }
 
         if (version < 17) {
-            platform.getLogger().warning("You are running an outdated Java version, please consider updating it to at least Java 17 (your version is " + javaVersion + "). "
-                    + "At some point in the future, ViaVersion will no longer be compatible with this version of Java.");
+            platform.getLogger().warning("You are running an outdated Java version, please update it to at least Java 17 (your version is " + javaVersion + ").");
+            platform.getLogger().warning("Starting with Minecraft 1.21, ViaVersion will no longer officially be compatible with this version of Java, only offering unsupported compatibility builds.");
         }
     }
 
     private void unsupportedSoftwareWarning() {
         boolean found = false;
         for (final UnsupportedSoftware software : platform.getUnsupportedSoftwareClasses()) {
-            if (!software.findMatch()) {
+            final String match = software.match();
+            if (match == null) {
                 continue;
             }
 
@@ -250,7 +255,7 @@ public class ViaManagerImpl implements ViaManager {
                 found = true;
             }
 
-            platform.getLogger().severe("We strongly advise against using " + software.getName() + ":");
+            platform.getLogger().severe("We strongly advise against using " + match + ":");
             platform.getLogger().severe(software.getReason());
             platform.getLogger().severe("");
         }
@@ -301,6 +306,16 @@ public class ViaManagerImpl implements ViaManager {
         return loader;
     }
 
+    @Override
+    public Scheduler getScheduler() {
+        return scheduler;
+    }
+
+    @Override
+    public ConfigurationProvider getConfigurationProvider() {
+        return configurationProvider;
+    }
+
     /**
      * Returns a mutable set of self-added subplatform version strings.
      * This set is expanded by the subplatform itself (e.g. ViaBackwards), and may not contain all running ones.
@@ -318,6 +333,11 @@ public class ViaManagerImpl implements ViaManager {
      */
     public void addEnableListener(Runnable runnable) {
         enableListeners.add(runnable);
+    }
+
+    @Override
+    public boolean isInitialized() {
+        return initialized;
     }
 
     public static final class ViaManagerBuilder {

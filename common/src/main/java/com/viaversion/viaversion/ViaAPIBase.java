@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2022 ViaVersion and contributors
+ * Copyright (C) 2016-2024 ViaVersion and contributors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -22,14 +22,14 @@ import com.viaversion.viaversion.api.ViaAPI;
 import com.viaversion.viaversion.api.connection.UserConnection;
 import com.viaversion.viaversion.api.legacy.LegacyViaAPI;
 import com.viaversion.viaversion.api.protocol.version.BlockedProtocolVersions;
+import com.viaversion.viaversion.api.protocol.version.ProtocolVersion;
 import com.viaversion.viaversion.api.protocol.version.ServerProtocolVersion;
 import com.viaversion.viaversion.legacy.LegacyAPI;
 import io.netty.buffer.ByteBuf;
-import org.checkerframework.checker.nullness.qual.Nullable;
-
 import java.util.SortedSet;
 import java.util.TreeSet;
 import java.util.UUID;
+import org.checkerframework.checker.nullness.qual.Nullable;
 
 public abstract class ViaAPIBase<T> implements ViaAPI<T> {
 
@@ -41,9 +41,9 @@ public abstract class ViaAPIBase<T> implements ViaAPI<T> {
     }
 
     @Override
-    public int getPlayerVersion(UUID uuid) {
+    public ProtocolVersion getPlayerProtocolVersion(UUID uuid) {
         UserConnection connection = Via.getManager().getConnectionManager().getConnectedClient(uuid);
-        return connection != null ? connection.getProtocolInfo().getProtocolVersion() : -1;
+        return connection != null ? connection.getProtocolInfo().protocolVersion() : ProtocolVersion.unknown;
     }
 
     @Override
@@ -72,15 +72,15 @@ public abstract class ViaAPIBase<T> implements ViaAPI<T> {
     }
 
     @Override
-    public SortedSet<Integer> getSupportedVersions() {
-        SortedSet<Integer> outputSet = new TreeSet<>(Via.getManager().getProtocolManager().getSupportedVersions());
+    public SortedSet<ProtocolVersion> getSupportedProtocolVersions() {
+        SortedSet<ProtocolVersion> outputSet = new TreeSet<>(Via.getManager().getProtocolManager().getSupportedVersions());
         BlockedProtocolVersions blockedVersions = Via.getPlatform().getConf().blockedProtocolVersions();
         outputSet.removeIf(blockedVersions::contains);
         return outputSet;
     }
 
     @Override
-    public SortedSet<Integer> getFullSupportedVersions() {
+    public SortedSet<ProtocolVersion> getFullSupportedProtocolVersions() {
         return Via.getManager().getProtocolManager().getSupportedVersions();
     }
 

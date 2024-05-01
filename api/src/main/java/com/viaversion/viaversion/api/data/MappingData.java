@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2022 ViaVersion and contributors
+ * Copyright (C) 2016-2024 ViaVersion and contributors
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -24,10 +24,8 @@ package com.viaversion.viaversion.api.data;
 
 import com.viaversion.viaversion.api.minecraft.RegistryType;
 import com.viaversion.viaversion.api.minecraft.TagData;
-import com.viaversion.viaversion.util.Int2IntBiMap;
-import org.checkerframework.checker.nullness.qual.Nullable;
-
 import java.util.List;
+import org.checkerframework.checker.nullness.qual.Nullable;
 
 public interface MappingData {
 
@@ -81,6 +79,8 @@ public interface MappingData {
      */
     int getNewParticleId(int id);
 
+    int getNewAttributeId(int id);
+
     /**
      * Returns a list of tags to send if present.
      *
@@ -89,7 +89,20 @@ public interface MappingData {
      */
     @Nullable List<TagData> getTags(RegistryType type);
 
-    @Nullable Int2IntBiMap getItemMappings();
+    /**
+     * Returns item mappings.
+     *
+     * @return item mappings
+     */
+    @Nullable BiMappings getItemMappings();
+
+    /**
+     * Returns item mappings if they also have identifier data present.
+     *
+     * @return item mappings if they also have identifier data present
+     * @see #getItemMappings()
+     */
+    @Nullable FullMappings getFullItemMappings();
 
     @Nullable ParticleMappings getParticleMappings();
 
@@ -103,11 +116,19 @@ public interface MappingData {
 
     @Nullable Mappings getStatisticsMappings();
 
+    @Nullable Mappings getMenuMappings();
+
     @Nullable Mappings getEnchantmentMappings();
+
+    @Nullable Mappings getAttributeMappings();
+
+    @Nullable Mappings getPaintingMappings();
 
     @Nullable FullMappings getEntityMappings();
 
     @Nullable FullMappings getArgumentTypeMappings();
 
-    @Nullable Mappings getPaintingMappings();
+    @Nullable FullMappings getRecipeSerializerMappings();
+
+    @Nullable FullMappings getDataComponentSerializerMappings();
 }

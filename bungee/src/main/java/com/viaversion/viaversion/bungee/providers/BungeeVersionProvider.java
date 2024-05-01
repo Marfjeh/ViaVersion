@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2022 ViaVersion and contributors
+ * Copyright (C) 2016-2024 ViaVersion and contributors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -24,41 +24,32 @@ import com.viaversion.viaversion.api.connection.UserConnection;
 import com.viaversion.viaversion.api.protocol.version.ProtocolVersion;
 import com.viaversion.viaversion.protocols.base.BaseVersionProvider;
 import com.viaversion.viaversion.util.ReflectionUtil;
-import net.md_5.bungee.api.ProxyServer;
-
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
+import net.md_5.bungee.api.ProxyServer;
+import net.md_5.bungee.protocol.ProtocolConstants;
 
 public class BungeeVersionProvider extends BaseVersionProvider {
-    private static Class<?> ref;
-
-    static {
-        try {
-            ref = Class.forName("net.md_5.bungee.protocol.ProtocolConstants");
-        } catch (Exception e) {
-            Via.getPlatform().getLogger().severe("Could not detect the ProtocolConstants class");
-            e.printStackTrace();
-        }
-    }
 
     @Override
-    public int getClosestServerProtocol(UserConnection user) throws Exception {
-        if (ref == null)
-            return super.getClosestServerProtocol(user);
+    public ProtocolVersion getClosestServerProtocol(UserConnection user) throws Exception {
         // TODO Have one constant list forever until restart? (Might limit plugins if they change this)
-        List<Integer> list = ReflectionUtil.getStatic(ref, "SUPPORTED_VERSION_IDS", List.class);
+        List<Integer> list = ReflectionUtil.getStatic(ProtocolConstants.class, "SUPPORTED_VERSION_IDS", List.class);
         List<Integer> sorted = new ArrayList<>(list);
         Collections.sort(sorted);
 
         ProtocolInfo info = user.getProtocolInfo();
 
         // Bungee supports it
-        if (sorted.contains(info.getProtocolVersion()))
-            return info.getProtocolVersion();
+        final ProtocolVersion clientProtocolVersion = info.protocolVersion();
+        if (new HashSet<>(sorted).contains(clientProtocolVersion.getVersion())) {
+            return clientProtocolVersion;
+        }
 
         // Older than bungee supports, get the lowest version
-        if (info.getProtocolVersion() < sorted.get(0)) {
+        if (clientProtocolVersion.getVersion() < sorted.get(0)) {
             return getLowestSupportedVersion();
         }
 
@@ -67,25 +58,23 @@ public class BungeeVersionProvider extends BaseVersionProvider {
         // TODO: This needs a better fix, i.e checking ProtocolRegistry to see if it would work.
         // This is more of a workaround for snapshot support by bungee.
         for (Integer protocol : Lists.reverse(sorted)) {
-            if (info.getProtocolVersion() > protocol && ProtocolVersion.isRegistered(protocol))
-                return protocol;
+            if (clientProtocolVersion.getVersion() > protocol && ProtocolVersion.isRegistered(protocol)) {
+                return ProtocolVersion.getProtocol(protocol);
+            }
         }
 
-        Via.getPlatform().getLogger().severe("Panic, no protocol id found for " + info.getProtocolVersion());
-        return info.getProtocolVersion();
+        Via.getPlatform().getLogger().severe("Panic, no protocol id found for " + clientProtocolVersion);
+        return clientProtocolVersion;
     }
 
-    public static int getLowestSupportedVersion() {
+    public static ProtocolVersion getLowestSupportedVersion() {
         List<Integer> list;
         try {
-            list = ReflectionUtil.getStatic(ref, "SUPPORTED_VERSION_IDS", List.class);
-            return list.get(0);
-        } catch (NoSuchFieldException e) {
-            e.printStackTrace();
-        } catch (IllegalAccessException e) {
-            e.printStackTrace();
+            list = ReflectionUtil.getStatic(ProtocolConstants.class, "SUPPORTED_VERSION_IDS", List.class);
+            return ProtocolVersion.getProtocol(list.get(0));
+        } catch (NoSuchFieldException | IllegalAccessException ignored) {
+            // Fallback
+            return ProtocolVersion.getProtocol(ProxyServer.getInstance().getProtocolVersion());
         }
-        // Fallback
-        return ProxyServer.getInstance().getProtocolVersion();
     }
 }

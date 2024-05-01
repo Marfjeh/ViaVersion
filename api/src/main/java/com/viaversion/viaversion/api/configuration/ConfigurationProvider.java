@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2022 ViaVersion and contributors
+ * Copyright (C) 2016-2024 ViaVersion and contributors
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -22,32 +22,26 @@
  */
 package com.viaversion.viaversion.api.configuration;
 
-import java.util.Map;
+import java.util.Collection;
 
 public interface ConfigurationProvider {
 
     /**
-     * Sets the specified path to the given value.
+     * Registers a config to be saved or reloaded when {@link #reloadConfigs()} is called.
      *
-     * @param path  Path of the object to set.
-     * @param value New value to set the path to
+     * @param config the config to register
      */
-    void set(String path, Object value);
+    void register(Config config);
 
     /**
-     * Saves the config
-     */
-    void saveConfig();
-
-    /**
-     * Reloads the config
-     */
-    void reloadConfig();
-
-    /**
-     * Get all the configuration values
+     * Returns all registered configs.
      *
-     * @return Map with key-values
+     * @return unmodifiable collection of all registered configs
      */
-    Map<String, Object> getValues();
+    Collection<Config> configs();
+
+    /**
+     * Reloads the configuration files.
+     */
+    void reloadConfigs();
 }

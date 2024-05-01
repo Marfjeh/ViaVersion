@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2022 ViaVersion and contributors
+ * Copyright (C) 2016-2024 ViaVersion and contributors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -22,12 +22,15 @@ import com.viaversion.viaversion.api.connection.UserConnection;
 import com.viaversion.viaversion.bukkit.util.NMSUtil;
 import com.viaversion.viaversion.protocols.protocol1_9to1_8.providers.MovementTransmitterProvider;
 import com.viaversion.viaversion.protocols.protocol1_9to1_8.storage.MovementTracker;
-import org.bukkit.Bukkit;
-import org.bukkit.entity.Player;
-
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.util.logging.Level;
+
+import com.viaversion.viaversion.util.PipelineUtil;
+import io.netty.channel.ChannelHandlerContext;
+import org.bukkit.Bukkit;
+import org.bukkit.entity.Player;
 
 public class BukkitViaMovementTransmitter extends MovementTransmitterProvider {
     private static boolean USE_NMS = true;
@@ -80,17 +83,15 @@ public class BukkitViaMovementTransmitter extends MovementTransmitterProvider {
         }
     }
 
-    @Override
     public Object getFlyingPacket() {
-        if (idlePacket == null)
-            throw new NullPointerException("Could not locate flying packet");
+        if (idlePacket == null) throw new NullPointerException("Could not locate flying packet");
+
         return idlePacket;
     }
 
-    @Override
     public Object getGroundPacket() {
-        if (idlePacket == null)
-            throw new NullPointerException("Could not locate flying packet");
+        if (idlePacket == null) throw new NullPointerException("Could not locate flying packet");
+
         return idlePacket2;
     }
 
@@ -109,11 +110,19 @@ public class BukkitViaMovementTransmitter extends MovementTransmitterProvider {
                         info.get(MovementTracker.class).incrementIdlePacket();
                     }
                 } catch (IllegalAccessException | InvocationTargetException e) {
-                    e.printStackTrace();
+                    Via.getPlatform().getLogger().log(Level.WARNING, "Failed to handle idle packet", e);
                 }
             }
         } else {
-            super.sendPlayer(info);
+            ChannelHandlerContext context = PipelineUtil.getContextBefore("decoder", info.getChannel().pipeline());
+            if (context != null) {
+                if (info.get(MovementTracker.class).isGround()) {
+                    context.fireChannelRead(getGroundPacket());
+                } else {
+                    context.fireChannelRead(getFlyingPacket());
+                }
+                info.get(MovementTracker.class).incrementIdlePacket();
+            }
         }
     }
 }

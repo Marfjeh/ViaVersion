@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2022 ViaVersion and contributors
+ * Copyright (C) 2016-2024 ViaVersion and contributors
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -27,10 +27,8 @@ import com.viaversion.viaversion.api.connection.StorableObject;
 import com.viaversion.viaversion.api.connection.UserConnection;
 import com.viaversion.viaversion.api.minecraft.WorldIdentifiers;
 import com.viaversion.viaversion.api.protocol.version.BlockedProtocolVersions;
-import it.unimi.dsi.fastutil.ints.IntSet;
-import org.checkerframework.checker.nullness.qual.Nullable;
 
-public interface ViaVersionConfig {
+public interface ViaVersionConfig extends Config {
 
     /**
      * Get if the plugin should check for updates
@@ -87,7 +85,7 @@ public interface ViaVersionConfig {
      * <p>
      * This option requires {@link #isShowShieldWhenSwordInHand()} to be disabled
      *
-     * @return {@code true} if non delayed shield blocking is enabled.
+     * @return {@code true} if non-delayed shield blocking is enabled.
      */
     boolean isNoDelayShieldBlocking();
 
@@ -126,7 +124,7 @@ public interface ViaVersionConfig {
      * Get if the boss bars for 1.9 &amp; 1.10 clients are being stopped from flickering
      * This will keep all boss bars on 100% (not recommended)
      *
-     * @return true if boss bar anti flickering is enabled
+     * @return true if boss bar anti-flickering is enabled
      */
     boolean isBossbarAntiflicker();
 
@@ -187,13 +185,6 @@ public interface ViaVersionConfig {
     String getMaxWarningsKickMessage();
 
     /**
-     * Is anti-xray enabled?
-     *
-     * @return A boolean
-     */
-    boolean isAntiXRay();
-
-    /**
      * Send supported versions in the status response packet
      *
      * @return If true, enabled
@@ -243,13 +234,6 @@ public interface ViaVersionConfig {
     boolean isChunkBorderFix();
 
     /**
-     * Force json transform
-     *
-     * @return true if enabled
-     */
-    boolean isForceJsonTransform();
-
-    /**
      * Should we fix nbt array's in json chat messages for 1.12 clients
      *
      * @return true if enabled
@@ -262,6 +246,8 @@ public interface ViaVersionConfig {
      * @return true if enabled
      */
     boolean is1_13TeamColourFix();
+
+    boolean shouldRegisterUserConnectionOnJoin();
 
     /**
      * Should we fix shift quick move action for 1.12 clients
@@ -276,17 +262,6 @@ public interface ViaVersionConfig {
      * @return blocked protocol versions
      */
     BlockedProtocolVersions blockedProtocolVersions();
-
-    /**
-     * Get the blocked protocols
-     *
-     * @return An Integer list
-     * @deprecated use {@link #blockedProtocolVersions()}
-     */
-    @Deprecated/*(forRemoval = true)*/
-    default IntSet getBlockedProtocols() {
-        return blockedProtocolVersions().singleBlockedVersions();
-    }
 
     /**
      * Get the custom disconnect message
@@ -389,7 +364,7 @@ public interface ViaVersionConfig {
     boolean isTruncate1_14Books();
 
     /**
-     * Handles left handed info by using unused bit 7 on Client Settings packet
+     * Handles left-handed info by using unused bit 7 on Client Settings packet
      *
      * @return true if enabled
      */
@@ -448,14 +423,38 @@ public interface ViaVersionConfig {
 
     /***
      * Get the world names that should be returned for each Vanilla dimension.
-     * Note that this can be overriden per-user by using {@link UserConnection#put(StorableObject)} with
+     * Note that this can be overridden per-user by using {@link UserConnection#put(StorableObject)} with
      * a custom instance of {@link WorldIdentifiers} for the user's {@link UserConnection}.
      *
      * @return the global map from vanilla dimensions to world name
      */
     WorldIdentifiers get1_16WorldNamesMap();
 
+    /**
+     * Caches light until chunks are unloaded to allow subsequent chunk update packets as opposed to instantly uncaching when the first chunk data is sent.
+     *
+     * @return true if enabled
+     */
     boolean cache1_17Light();
 
-    @Nullable String chatTypeFormat(String translationKey);
+    /**
+     * Force-update 1.19.4+ player's inventory when they try to swap armor in a pre-occupied slot.
+     *
+     * @return true if enabled
+     */
+    boolean isArmorToggleFix();
+
+    /**
+     * If disabled, tamed cats will be displayed as ocelots to 1.14+ clients on 1.13 servers. Otherwise, ocelots (tamed and untamed) will be displayed as cats.
+     *
+     * @return true if enabled
+     */
+    boolean translateOcelotToCat();
+
+    /**
+     * Returns the value of the "enforce secure chat" setting sent to 1.19+ clients on join.
+     *
+     * @return the value sent to 1.19+ clients on join
+     */
+    boolean enforceSecureChat();
 }

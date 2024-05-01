@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2022 ViaVersion and contributors
+ * Copyright (C) 2016-2024 ViaVersion and contributors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -27,11 +27,9 @@ import com.viaversion.viaversion.commands.defaultsubs.DebugSubCmd;
 import com.viaversion.viaversion.commands.defaultsubs.DisplayLeaksSubCmd;
 import com.viaversion.viaversion.commands.defaultsubs.DontBugMeSubCmd;
 import com.viaversion.viaversion.commands.defaultsubs.DumpSubCmd;
-import com.viaversion.viaversion.commands.defaultsubs.HelpSubCmd;
 import com.viaversion.viaversion.commands.defaultsubs.ListSubCmd;
 import com.viaversion.viaversion.commands.defaultsubs.PPSSubCmd;
 import com.viaversion.viaversion.commands.defaultsubs.ReloadSubCmd;
-
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -70,6 +68,19 @@ public abstract class ViaCommandHandler implements ViaVersionCommand {
 
     @Override
     public boolean onCommand(ViaCommandSender sender, String[] args) {
+        boolean hasPermissions = sender.hasPermission("viaversion.admin");
+        for (ViaSubCommand command : commandMap.values()) {
+            if (sender.hasPermission(command.permission())) {
+                hasPermissions = true;
+                break;
+            }
+        }
+
+        if (!hasPermissions) {
+            sender.sendMessage(color("&cYou are not allowed to use this command!"));
+            return false;
+        }
+
         if (args.length == 0) {
             showHelp(sender);
             return false;
@@ -126,7 +137,15 @@ public abstract class ViaCommandHandler implements ViaVersionCommand {
 
                 List<String> tab = sub.onTabComplete(sender, subArgs);
                 Collections.sort(tab);
-                return tab;
+                if (!tab.isEmpty()) {
+                    final String currArg = subArgs[subArgs.length - 1];
+                    for (String s : tab) {
+                        if (s.toLowerCase(Locale.ROOT).startsWith(currArg.toLowerCase(Locale.ROOT))) {
+                            output.add(s);
+                        }
+                    }
+                }
+                return output;
             }
         }
         return output;
@@ -163,7 +182,7 @@ public abstract class ViaCommandHandler implements ViaVersionCommand {
     }
 
     private boolean hasPermission(ViaCommandSender sender, String permission) {
-        return permission == null || sender.hasPermission(permission);
+        return permission == null || sender.hasPermission("viaversion.admin") || sender.hasPermission(permission);
     }
 
     private void registerDefaults() {
@@ -174,7 +193,6 @@ public abstract class ViaCommandHandler implements ViaVersionCommand {
         registerSubCommand(new DisplayLeaksSubCmd());
         registerSubCommand(new DontBugMeSubCmd());
         registerSubCommand(new AutoTeamSubCmd());
-        registerSubCommand(new HelpSubCmd());
         registerSubCommand(new ReloadSubCmd());
     }
 }

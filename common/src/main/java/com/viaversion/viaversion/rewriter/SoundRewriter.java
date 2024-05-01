@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2022 ViaVersion and contributors
+ * Copyright (C) 2016-2024 ViaVersion and contributors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -17,35 +17,63 @@
  */
 package com.viaversion.viaversion.rewriter;
 
+import com.viaversion.viaversion.api.minecraft.Holder;
+import com.viaversion.viaversion.api.minecraft.SoundEvent;
 import com.viaversion.viaversion.api.protocol.Protocol;
 import com.viaversion.viaversion.api.protocol.packet.ClientboundPacketType;
 import com.viaversion.viaversion.api.protocol.remapper.PacketHandler;
-import com.viaversion.viaversion.api.protocol.remapper.PacketRemapper;
+import com.viaversion.viaversion.api.protocol.remapper.PacketHandlers;
 import com.viaversion.viaversion.api.type.Type;
 
-public class SoundRewriter {
-    protected final Protocol protocol;
+public class SoundRewriter<C extends ClientboundPacketType> {
+    protected final Protocol<C, ?, ?, ?> protocol;
     protected final IdRewriteFunction idRewriter;
 
-    public SoundRewriter(Protocol protocol) {
+    public SoundRewriter(Protocol<C, ?, ?, ?> protocol) {
         this.protocol = protocol;
         this.idRewriter = id -> protocol.getMappingData().getSoundMappings().getNewId(id);
     }
 
-    public SoundRewriter(Protocol protocol, IdRewriteFunction idRewriter) {
+    public SoundRewriter(Protocol<C, ?, ?, ?> protocol, IdRewriteFunction idRewriter) {
         this.protocol = protocol;
         this.idRewriter = idRewriter;
     }
 
-    // The same for entity sound
-    public void registerSound(ClientboundPacketType packetType) {
-        protocol.registerClientbound(packetType, new PacketRemapper() {
+    public void registerSound(C packetType) {
+        protocol.registerClientbound(packetType, new PacketHandlers() {
             @Override
-            public void registerMap() {
-                map(Type.VAR_INT); // Sound Id
+            public void register() {
+                map(Type.VAR_INT); // Sound id
                 handler(getSoundHandler());
             }
         });
+    }
+
+    public void register1_19_3Sound(C packetType) {
+        protocol.registerClientbound(packetType, soundHolderHandler());
+    }
+
+    public PacketHandler soundHolderHandler() {
+        return wrapper -> {
+            Holder<SoundEvent> soundEventHolder = wrapper.read(Type.SOUND_EVENT);
+            if (soundEventHolder.isDirect()) {
+                // Is followed by the resource loation
+                wrapper.write(Type.SOUND_EVENT, soundEventHolder);
+                return;
+            }
+
+            final int mappedId = idRewriter.rewrite(soundEventHolder.id());
+            if (mappedId == -1) {
+                wrapper.cancel();
+                return;
+            }
+
+            if (mappedId != soundEventHolder.id()) {
+                soundEventHolder = Holder.of(mappedId);
+            }
+
+            wrapper.write(Type.SOUND_EVENT, soundEventHolder);
+        };
     }
 
     public PacketHandler getSoundHandler() {

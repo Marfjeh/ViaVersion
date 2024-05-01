@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2022 ViaVersion and contributors
+ * Copyright (C) 2016-2024 ViaVersion and contributors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -17,21 +17,22 @@
  */
 package com.viaversion.viaversion.bungee.providers;
 
+import com.viaversion.viaversion.api.Via;
 import com.viaversion.viaversion.api.connection.ProtocolInfo;
 import com.viaversion.viaversion.api.connection.UserConnection;
 import com.viaversion.viaversion.protocols.protocol1_9to1_8.providers.MainHandProvider;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
+import java.util.logging.Level;
 import net.md_5.bungee.api.ProxyServer;
 import net.md_5.bungee.api.connection.ProxiedPlayer;
 
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
-
 /*
-    This solves the wrong mainhand issue when you join with BungeeCord on a 1.8 server, and switch to a 1.9 or higher.
+    This solves the wrong main hand issue when you join with BungeeCord on a 1.8 server, and switch to a 1.9 or higher.
  */
 public class BungeeMainHandProvider extends MainHandProvider {
-    private static Method getSettings = null;
-    private static Method setMainHand = null;
+    private static Method getSettings;
+    private static Method setMainHand;
 
     static {
         try {
@@ -53,7 +54,7 @@ public class BungeeMainHandProvider extends MainHandProvider {
                 setMainHand.invoke(settings, hand);
             }
         } catch (IllegalAccessException | InvocationTargetException e) {
-            e.printStackTrace();
+            Via.getPlatform().getLogger().log(Level.WARNING, "Failed to set main hand for " + player.getName(), e);
         }
     }
 }

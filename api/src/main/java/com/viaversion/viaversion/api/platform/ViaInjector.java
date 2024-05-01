@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2022 ViaVersion and contributors
+ * Copyright (C) 2016-2024 ViaVersion and contributors
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -23,22 +23,23 @@
 package com.viaversion.viaversion.api.platform;
 
 import com.google.gson.JsonObject;
-import it.unimi.dsi.fastutil.ints.IntSortedSet;
-import it.unimi.dsi.fastutil.ints.IntSortedSets;
+import com.viaversion.viaversion.api.protocol.version.ProtocolVersion;
+import it.unimi.dsi.fastutil.objects.ObjectLinkedOpenHashSet;
+import java.util.SortedSet;
 
 public interface ViaInjector {
 
     /**
      * Inject into the current Platform
      *
-     * @throws Exception If there is an error with injecting
+     * @throws Exception if there is an error with injecting
      */
     void inject() throws Exception;
 
     /**
      * Uninject into the current Platform
      *
-     * @throws Exception If there is an error with uninjecting
+     * @throws Exception if there is an error with uninjecting
      */
     void uninject() throws Exception;
 
@@ -57,20 +58,22 @@ public interface ViaInjector {
      * For proxies, this returns the lowest supported protocol version.
      *
      * @return server protocol version
-     * @throws Exception if there is an error with getting this info, eg. not binded
+     * @throws Exception if there is an error with getting this info, e.g. not binded
      * @see ViaPlatform#isProxy()
      */
-    int getServerProtocolVersion() throws Exception;
+    ProtocolVersion getServerProtocolVersion() throws Exception;
 
     /**
      * Returns the supported server protocol versions.
      *
      * @return server protocol versions
-     * @throws Exception if there is an error with getting this info, eg. not binded
+     * @throws Exception if there is an error with getting this info, e.g. not binded
      * @see ViaPlatform#isProxy()
      */
-    default IntSortedSet getServerProtocolVersions() throws Exception {
-        return IntSortedSets.singleton(getServerProtocolVersion());
+    default SortedSet<ProtocolVersion> getServerProtocolVersions() throws Exception {
+        final SortedSet<ProtocolVersion> versions = new ObjectLinkedOpenHashSet<>();
+        versions.add(getServerProtocolVersion());
+        return versions;
     }
 
     /**

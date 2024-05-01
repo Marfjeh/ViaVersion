@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2022 ViaVersion and contributors
+ * Copyright (C) 2016-2024 ViaVersion and contributors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -20,16 +20,11 @@ package com.viaversion.viaversion.velocity.command;
 import com.velocitypowered.api.command.SimpleCommand;
 import com.viaversion.viaversion.commands.ViaCommandHandler;
 import com.viaversion.viaversion.velocity.command.subs.ProbeSubCmd;
-
 import java.util.List;
 
 public class VelocityCommandHandler extends ViaCommandHandler implements SimpleCommand {
     public VelocityCommandHandler() {
-        try {
-            registerSubCommand(new ProbeSubCmd());
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
+        registerSubCommand(new ProbeSubCmd());
     }
 
     @Override
@@ -44,6 +39,6 @@ public class VelocityCommandHandler extends ViaCommandHandler implements SimpleC
 
     @Override
     public boolean hasPermission(Invocation invocation) {
-        return invocation.source().hasPermission("viaversion.admin"); // The permission is also referenced here to filter root suggestions (/via<tab>)
+        return invocation.source().hasPermission("viaversion.command"); // The permission is also referenced here to filter root suggestions (/via<tab>)
     }
 }

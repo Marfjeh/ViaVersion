@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2022 ViaVersion and contributors
+ * Copyright (C) 2016-2024 ViaVersion and contributors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -53,8 +53,8 @@ public final class BlockBreakListener extends ViaBukkitListener {
         }
 
         // We need to resend the block entity data after an ack has been sent out
-        final int serverProtocolVersion = Via.getAPI().getServerVersion().highestSupportedVersion();
-        final long delay = serverProtocolVersion > ProtocolVersion.v1_8.getVersion() && serverProtocolVersion < ProtocolVersion.v1_14.getVersion() ? 2 : 1;
+        final ProtocolVersion serverProtocolVersion = Via.getAPI().getServerVersion().highestSupportedProtocolVersion();
+        final long delay = serverProtocolVersion.newerThan(ProtocolVersion.v1_8) && serverProtocolVersion.olderThan(ProtocolVersion.v1_14) ? 2 : 1;
         getPlugin().getServer().getScheduler().runTaskLater(getPlugin(), () -> {
             final BlockState state = block.getState();
             if (isBlockEntity(state)) {

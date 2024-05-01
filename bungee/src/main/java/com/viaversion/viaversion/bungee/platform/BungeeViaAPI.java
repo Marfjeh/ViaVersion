@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2022 ViaVersion and contributors
+ * Copyright (C) 2016-2024 ViaVersion and contributors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -18,6 +18,8 @@
 package com.viaversion.viaversion.bungee.platform;
 
 import com.viaversion.viaversion.ViaAPIBase;
+import com.viaversion.viaversion.api.Via;
+import com.viaversion.viaversion.api.protocol.version.ProtocolVersion;
 import com.viaversion.viaversion.bungee.service.ProtocolDetectorService;
 import io.netty.buffer.ByteBuf;
 import net.md_5.bungee.api.config.ServerInfo;
@@ -26,8 +28,8 @@ import net.md_5.bungee.api.connection.ProxiedPlayer;
 public class BungeeViaAPI extends ViaAPIBase<ProxiedPlayer> {
 
     @Override
-    public int getPlayerVersion(ProxiedPlayer player) {
-        return getPlayerVersion(player.getUniqueId());
+    public ProtocolVersion getPlayerProtocolVersion(ProxiedPlayer player) {
+        return getPlayerProtocolVersion(player.getUniqueId());
     }
 
     @Override
@@ -41,6 +43,6 @@ public class BungeeViaAPI extends ViaAPIBase<ProxiedPlayer> {
      * @param serverInfo The serverinfo to probe
      */
     public void probeServer(ServerInfo serverInfo) {
-        ProtocolDetectorService.probeServer(serverInfo);
+        ((ProtocolDetectorService) Via.proxyPlatform().protocolDetectorService()).probeServer(serverInfo);
     }
 }

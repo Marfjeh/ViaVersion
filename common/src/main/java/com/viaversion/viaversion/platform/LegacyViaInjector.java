@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2022 ViaVersion and contributors
+ * Copyright (C) 2016-2024 ViaVersion and contributors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -29,11 +29,11 @@ import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelHandler;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ChannelPipeline;
-import org.checkerframework.checker.nullness.qual.Nullable;
-
 import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.logging.Level;
+import org.checkerframework.checker.nullness.qual.Nullable;
 
 public abstract class LegacyViaInjector implements ViaInjector {
     protected final List<ChannelFuture> injectedFutures = new ArrayList<>();
@@ -142,8 +142,7 @@ public abstract class LegacyViaInjector implements ViaInjector {
                     ReflectionUtil.set(bootstrapAcceptor, "childHandler", ((WrappedChannelInitializer) initializer).original());
                 }
             } catch (Exception e) {
-                Via.getPlatform().getLogger().severe("Failed to remove injection handler, reload won't work with connections, please reboot!");
-                e.printStackTrace();
+                Via.getPlatform().getLogger().log(Level.SEVERE, "Failed to remove injection handler, reload won't work with connections, please reboot!", e);
             }
         }
 
@@ -233,16 +232,6 @@ public abstract class LegacyViaInjector implements ViaInjector {
             // Ignored, fields won't be present
         }
         return data;
-    }
-
-    @Override
-    public String getEncoderName() {
-        return "encoder";
-    }
-
-    @Override
-    public String getDecoderName() {
-        return "decoder";
     }
 
     /**

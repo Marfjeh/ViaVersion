@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2022 ViaVersion and contributors
+ * Copyright (C) 2016-2024 ViaVersion and contributors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -17,6 +17,7 @@
  */
 package com.viaversion.viaversion.protocols.protocol1_13to1_12_2.data;
 
+import com.viaversion.viaversion.util.Key;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -59,7 +60,7 @@ public class EntityNameRewriter {
 
 
     private static void reg(String past, String future) {
-        entityNames.put("minecraft:" + past, "minecraft:" + future);
+        entityNames.put(Key.namespaced(past), Key.namespaced(future));
     }
 
     public static String rewrite(String entName) {
@@ -67,7 +68,7 @@ public class EntityNameRewriter {
         if (entityName != null) {
             return entityName;
         }
-        entityName = entityNames.get("minecraft:" + entName);
+        entityName = entityNames.get(Key.namespaced(entName));
         if (entityName != null) {
             return entityName;
         } else

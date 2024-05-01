@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2022 ViaVersion and contributors
+ * Copyright (C) 2016-2024 ViaVersion and contributors
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -22,6 +22,7 @@
  */
 package com.viaversion.viaversion.api.minecraft.metadata;
 
+import com.google.common.base.Preconditions;
 import com.viaversion.viaversion.api.type.Type;
 
 public interface MetaType {
@@ -49,6 +50,7 @@ public interface MetaType {
         private final Type<?> type;
 
         MetaTypeImpl(final int typeId, final Type<?> type) {
+            Preconditions.checkNotNull(type);
             this.typeId = typeId;
             this.type = type;
         }
@@ -61,6 +63,14 @@ public interface MetaType {
         @Override
         public Type<?> type() {
             return type;
+        }
+
+        @Override
+        public String toString() {
+            return "MetaType{" +
+                    "typeId=" + typeId +
+                    ", type=" + type +
+                    '}';
         }
 
         @Override

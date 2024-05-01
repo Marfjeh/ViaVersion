@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2022 ViaVersion and contributors
+ * Copyright (C) 2016-2024 ViaVersion and contributors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -20,23 +20,24 @@ package com.viaversion.viaversion.protocols.protocol1_9to1_8;
 import com.github.steveice10.opennbt.tag.builtin.CompoundTag;
 import com.github.steveice10.opennbt.tag.builtin.ListTag;
 import com.github.steveice10.opennbt.tag.builtin.StringTag;
-import com.github.steveice10.opennbt.tag.builtin.Tag;
 import com.viaversion.viaversion.api.minecraft.item.Item;
+import com.viaversion.viaversion.util.ComponentUtil;
+import com.viaversion.viaversion.util.Key;
+import com.viaversion.viaversion.util.SerializerVersion;
 import it.unimi.dsi.fastutil.ints.Int2IntMap;
 import it.unimi.dsi.fastutil.ints.Int2IntOpenHashMap;
-
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
 public class ItemRewriter {
 
-    private static final Map<String, Integer> ENTTIY_NAME_TO_ID = new HashMap<>();
-    private static final Map<Integer, String> ENTTIY_ID_TO_NAME = new HashMap<>();
-    private static final Map<String, Integer> POTION_NAME_TO_ID = new HashMap<>();
-    private static final Map<Integer, String> POTION_ID_TO_NAME = new HashMap<>();
+    public static final Map<String, Integer> ENTITY_NAME_TO_ID = new HashMap<>();
+    public static final Map<Integer, String> ENTITY_ID_TO_NAME = new HashMap<>();
+    public static final Map<String, Integer> POTION_NAME_TO_ID = new HashMap<>();
+    public static final Map<Integer, String> POTION_ID_TO_NAME = new HashMap<>();
 
-    private static final Int2IntMap POTION_INDEX = new Int2IntOpenHashMap(36, .99F);
+    public static final Int2IntMap POTION_INDEX = new Int2IntOpenHashMap(36, .99F);
 
     static {
         /* Entities */
@@ -161,12 +162,12 @@ public class ItemRewriter {
             if (item.identifier() == 383 && item.data() == 0) { // Monster Egg
                 CompoundTag tag = item.tag();
                 int data = 0;
-                if (tag != null && tag.get("EntityTag") instanceof CompoundTag) {
-                    CompoundTag entityTag = tag.get("EntityTag");
-                    if (entityTag.get("id") instanceof StringTag) {
-                        StringTag id = entityTag.get("id");
-                        if (ENTTIY_NAME_TO_ID.containsKey(id.getValue()))
-                            data = ENTTIY_NAME_TO_ID.get(id.getValue());
+                if (tag != null && tag.getCompoundTag("EntityTag") != null) {
+                    CompoundTag entityTag = tag.getCompoundTag("EntityTag");
+                    StringTag id = entityTag.getStringTag("id");
+                    if (id != null) {
+                        if (ENTITY_NAME_TO_ID.containsKey(id.getValue()))
+                            data = ENTITY_NAME_TO_ID.get(id.getValue());
                     }
                     tag.remove("EntityTag");
                 }
@@ -176,9 +177,9 @@ public class ItemRewriter {
             if (item.identifier() == 373) { // Potion
                 CompoundTag tag = item.tag();
                 int data = 0;
-                if (tag != null && tag.get("Potion") instanceof StringTag) {
-                    StringTag potion = tag.get("Potion");
-                    String potionName = potion.getValue().replace("minecraft:", "");
+                if (tag != null && tag.getStringTag("Potion") != null) {
+                    StringTag potion = tag.getStringTag("Potion");
+                    String potionName = Key.stripMinecraftNamespace(potion.getValue());
                     if (POTION_NAME_TO_ID.containsKey(potionName)) {
                         data = POTION_NAME_TO_ID.get(potionName);
                     }
@@ -192,9 +193,9 @@ public class ItemRewriter {
                 CompoundTag tag = item.tag();
                 int data = 0;
                 item.setIdentifier(373); // Potion
-                if (tag != null && tag.get("Potion") instanceof StringTag) {
-                    StringTag potion = tag.get("Potion");
-                    String potionName = potion.getValue().replace("minecraft:", "");
+                if (tag != null && tag.getStringTag("Potion") != null) {
+                    StringTag potion = tag.getStringTag("Potion");
+                    String potionName = Key.stripMinecraftNamespace(potion.getValue());
                     if (POTION_NAME_TO_ID.containsKey(potionName)) {
                         data = POTION_NAME_TO_ID.get(potionName) + 8192;
                     }
@@ -208,7 +209,7 @@ public class ItemRewriter {
             newItem |= item.identifier() == 397 && item.data() == 5;
             newItem |= item.identifier() >= 432 && item.identifier() <= 448;
             if (newItem) { // Replace server-side unknown items
-                item.setIdentifier((short) 1);
+                item.setIdentifier(1);
                 item.setData((short) 0);
             }
         }
@@ -219,34 +220,19 @@ public class ItemRewriter {
         if (id != 387) {
             return;
         }
+
         CompoundTag tag = item.tag();
-        ListTag pages = tag.get("pages");
-        if (pages == null) { // is this even possible?
+        ListTag<StringTag> pages = tag.getListTag("pages", StringTag.class);
+        if (pages == null) {
             return;
         }
-        for (int i = 0; i < pages.size(); i++) {
-            Tag pageTag = pages.get(i);
-            if (!(pageTag instanceof StringTag)) {
-                continue;
-            }
-            StringTag stag = (StringTag) pageTag;
-            String value = stag.getValue();
-            if (value.replaceAll(" ", "").isEmpty()) {
-                value = "\"" + fixBookSpaceChars(value) + "\"";
-            } else {
-                value = fixBookSpaceChars(value);
-            }
-            stag.setValue(value);
-        }
-    }
 
-    private static String fixBookSpaceChars(String str) {
-        if (!str.startsWith(" ")) {
-            return str;
+        for (int i = 0; i < pages.size(); i++) {
+            final StringTag pageTag = pages.get(i);
+            final String value = pageTag.getValue();
+
+            pageTag.setValue(ComponentUtil.convertJson(value, SerializerVersion.V1_9, SerializerVersion.V1_8).toString());
         }
-        // hacky but it works :)
-        str = "§r" + str;
-        return str;
     }
 
     public static void toClient(Item item) {
@@ -257,7 +243,7 @@ public class ItemRewriter {
                     tag = new CompoundTag();
                 }
                 CompoundTag entityTag = new CompoundTag();
-                String entityName = ENTTIY_ID_TO_NAME.get((int) item.data());
+                String entityName = ENTITY_ID_TO_NAME.get((int) item.data());
                 if (entityName != null) {
                     StringTag id = new StringTag(entityName);
                     entityTag.put("id", id);
@@ -276,7 +262,7 @@ public class ItemRewriter {
                     item.setData((short) (item.data() - 8192));
                 }
                 String name = potionNameFromDamage(item.data());
-                StringTag potion = new StringTag("minecraft:" + name);
+                StringTag potion = new StringTag(Key.namespaced(name));
                 tag.put("Potion", potion);
                 item.setTag(tag);
                 item.setData((short) 0);
@@ -286,19 +272,18 @@ public class ItemRewriter {
                 if (tag == null) {
                     tag = new CompoundTag();
                 }
-                ListTag pages = tag.get("pages");
+
+                ListTag<StringTag> pages = tag.getListTag("pages", StringTag.class);
                 if (pages == null) {
-                    pages = new ListTag(Collections.singletonList(new StringTag(Protocol1_9To1_8.fixJson("").toString())));
+                    pages = new ListTag<>(Collections.singletonList(new StringTag(ComponentUtil.emptyJsonComponent().toString())));
                     tag.put("pages", pages);
                     item.setTag(tag);
                     return;
                 }
 
                 for (int i = 0; i < pages.size(); i++) {
-                    if (!(pages.get(i) instanceof StringTag))
-                        continue;
-                    StringTag page = pages.get(i);
-                    page.setValue(Protocol1_9To1_8.fixJson(page.getValue()).toString());
+                    final StringTag page = pages.get(i);
+                    page.setValue(ComponentUtil.convertJsonOrEmpty(page.getValue(), SerializerVersion.V1_8, SerializerVersion.V1_9).toString());
                 }
                 item.setTag(tag);
             }
@@ -418,8 +403,8 @@ public class ItemRewriter {
     }
 
     private static void registerEntity(int id, String name) {
-        ENTTIY_ID_TO_NAME.put(id, name);
-        ENTTIY_NAME_TO_ID.put(name, id);
+        ENTITY_ID_TO_NAME.put(id, name);
+        ENTITY_NAME_TO_ID.put(name, id);
     }
 
     private static void registerPotion(int id, String name) {

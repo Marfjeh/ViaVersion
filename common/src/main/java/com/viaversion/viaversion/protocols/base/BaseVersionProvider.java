@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2022 ViaVersion and contributors
+ * Copyright (C) 2016-2024 ViaVersion and contributors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -19,12 +19,13 @@ package com.viaversion.viaversion.protocols.base;
 
 import com.viaversion.viaversion.api.Via;
 import com.viaversion.viaversion.api.connection.UserConnection;
+import com.viaversion.viaversion.api.protocol.version.ProtocolVersion;
 import com.viaversion.viaversion.api.protocol.version.VersionProvider;
 
 public class BaseVersionProvider implements VersionProvider {
 
     @Override
-    public int getClosestServerProtocol(UserConnection connection) throws Exception {
-        return Via.getAPI().getServerVersion().lowestSupportedVersion();
+    public ProtocolVersion getClosestServerProtocol(UserConnection connection) throws Exception {
+        return Via.getAPI().getServerVersion().lowestSupportedProtocolVersion();
     }
 }

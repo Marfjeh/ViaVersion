@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2022 ViaVersion and contributors
+ * Copyright (C) 2016-2024 ViaVersion and contributors
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -23,7 +23,6 @@
 package com.viaversion.viaversion.api.legacy.bossbar;
 
 import com.viaversion.viaversion.api.connection.UserConnection;
-
 import java.util.Set;
 import java.util.UUID;
 
@@ -67,7 +66,7 @@ public interface BossBar {
     BossColor getColor();
 
     /**
-     * Yay colors!
+     * Yay, colors!
      *
      * @param color Whatever color you want!
      * @return The BossBar object

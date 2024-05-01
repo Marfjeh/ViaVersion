@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2022 ViaVersion and contributors
+ * Copyright (C) 2016-2024 ViaVersion and contributors
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -34,4 +34,17 @@ public interface PacketHandler {
      * @throws Exception if an error occurs during the packet handling
      */
     void handle(PacketWrapper wrapper) throws Exception;
+
+    /**
+     * Returns a new packet handler that runs the provided handler after this one.
+     *
+     * @param handler packet handler to run aftet this one
+     * @return a new packet handler that runs the provided handler after this one
+     */
+    default PacketHandler then(final PacketHandler handler) {
+        return wrapper -> {
+            this.handle(wrapper);
+            handler.handle(wrapper);
+        };
+    }
 }

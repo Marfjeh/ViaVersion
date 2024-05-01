@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2022 ViaVersion and contributors
+ * Copyright (C) 2016-2024 ViaVersion and contributors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -20,17 +20,18 @@ package com.viaversion.viaversion.protocols.protocol1_16to1_15_2.data;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonPrimitive;
-import com.viaversion.viaversion.api.protocol.Protocol;
+import com.viaversion.viaversion.api.connection.UserConnection;
+import com.viaversion.viaversion.protocols.protocol1_15to1_14_4.ClientboundPackets1_15;
+import com.viaversion.viaversion.protocols.protocol1_16to1_15_2.Protocol1_16To1_15_2;
 import com.viaversion.viaversion.rewriter.ComponentRewriter;
-
 import java.util.HashMap;
 import java.util.Map;
 
-public class TranslationMappings extends ComponentRewriter {
+public class TranslationMappings extends ComponentRewriter<ClientboundPackets1_15> {
     private final Map<String, String> mappings = new HashMap<>();
 
-    public TranslationMappings(Protocol protocol) {
-        super(protocol);
+    public TranslationMappings(Protocol1_16To1_15_2 protocol) {
+        super(protocol, ReadType.JSON);
         mappings.put("attribute.name.generic.armorToughness", "attribute.name.generic.armor_toughness");
         mappings.put("attribute.name.generic.attackDamage", "attribute.name.generic.attack_damage");
         mappings.put("attribute.name.generic.attackSpeed", "attribute.name.generic.attack_speed");
@@ -67,8 +68,8 @@ public class TranslationMappings extends ComponentRewriter {
     }
 
     @Override
-    public void processText(JsonElement element) {
-        super.processText(element);
+    public void processText(UserConnection connection, JsonElement element) {
+        super.processText(connection, element);
         if (element == null || !element.isJsonObject()) return;
 
         // Score components no longer contain value fields

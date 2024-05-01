@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2022 ViaVersion and contributors
+ * Copyright (C) 2016-2024 ViaVersion and contributors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -18,30 +18,34 @@
 package com.viaversion.viaversion.util;
 
 import com.google.gson.JsonElement;
-import com.viaversion.viaversion.api.Via;
-import com.viaversion.viaversion.api.configuration.ConfigurationProvider;
-import com.viaversion.viaversion.libs.kyori.adventure.text.serializer.gson.GsonComponentSerializer;
-import com.viaversion.viaversion.libs.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
-import org.checkerframework.checker.nullness.qual.Nullable;
-import org.yaml.snakeyaml.DumperOptions;
-import org.yaml.snakeyaml.Yaml;
-import org.yaml.snakeyaml.representer.Representer;
-
-import java.io.*;
+import com.viaversion.viaversion.compatibility.YamlCompat;
+import com.viaversion.viaversion.compatibility.unsafe.Yaml1Compat;
+import com.viaversion.viaversion.compatibility.unsafe.Yaml2Compat;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.io.InputStream;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentSkipListMap;
+import java.util.logging.Logger;
+import org.checkerframework.checker.nullness.qual.Nullable;
+import org.yaml.snakeyaml.DumperOptions;
+import org.yaml.snakeyaml.Yaml;
 
-public abstract class Config implements ConfigurationProvider {
+@SuppressWarnings("VulnerableCodeUsages")
+public abstract class Config {
+    protected static final Logger LOGGER = Logger.getLogger("ViaVersion Config");
+    private static final YamlCompat YAMP_COMPAT = YamlCompat.isVersion1() ? new Yaml1Compat() : new Yaml2Compat();
     private static final ThreadLocal<Yaml> YAML = ThreadLocal.withInitial(() -> {
         DumperOptions options = new DumperOptions();
         options.setDefaultFlowStyle(DumperOptions.FlowStyle.BLOCK);
         options.setPrettyFlow(false);
         options.setIndent(2);
-        return new Yaml(new YamlConstructor(), new Representer(), options);
+        return new Yaml(YAMP_COMPAT.createSafeConstructor(), YAMP_COMPAT.createRepresenter(options), options);
     });
 
     private final CommentStore commentStore = new CommentStore('.', 2);
@@ -50,11 +54,11 @@ public abstract class Config implements ConfigurationProvider {
 
     /**
      * Create a new Config instance, this will *not* load the config by default.
-     * To load config see {@link #reloadConfig()}
+     * To load config see {@link #reload()}
      *
      * @param configFile The location of where the config is loaded/saved.
      */
-    public Config(File configFile) {
+    protected Config(File configFile) {
         this.configFile = configFile;
     }
 
@@ -62,14 +66,26 @@ public abstract class Config implements ConfigurationProvider {
         return getClass().getClassLoader().getResource("assets/viaversion/config.yml");
     }
 
+    public InputStream getDefaultConfigInputStream() {
+        return getClass().getClassLoader().getResourceAsStream("assets/viaversion/config.yml");
+    }
+
     public Map<String, Object> loadConfig(File location) {
-        return loadConfig(location, getDefaultConfigURL());
+        final URL defaultConfigUrl = getDefaultConfigURL();
+        if (defaultConfigUrl != null) {
+            return loadConfig(location, defaultConfigUrl);
+        }
+        return loadConfig(location, this::getDefaultConfigInputStream);
     }
 
     public synchronized Map<String, Object> loadConfig(File location, URL jarConfigFile) {
+        return loadConfig(location, jarConfigFile::openStream);
+    }
+
+    private synchronized Map<String, Object> loadConfig(File location, InputStreamSupplier configSupplier) {
         List<String> unsupported = getUnsupportedOptions();
         try {
-            commentStore.storeComments(jarConfigFile.openStream());
+            commentStore.storeComments(configSupplier.get());
             for (String option : unsupported) {
                 List<String> comments = commentStore.header(option);
                 if (comments != null) {
@@ -83,8 +99,6 @@ public abstract class Config implements ConfigurationProvider {
         if (location.exists()) {
             try (FileInputStream input = new FileInputStream(location)) {
                 config = (Map<String, Object>) YAML.get().load(input);
-            } catch (FileNotFoundException e) {
-                e.printStackTrace();
             } catch (IOException e) {
                 e.printStackTrace();
             }
@@ -94,7 +108,7 @@ public abstract class Config implements ConfigurationProvider {
         }
 
         Map<String, Object> defaults = config;
-        try (InputStream stream = jarConfigFile.openStream()) {
+        try (InputStream stream = configSupplier.get()) {
             defaults = (Map<String, Object>) YAML.get().load(stream);
             for (String option : unsupported) {
                 defaults.remove(option);
@@ -112,14 +126,14 @@ public abstract class Config implements ConfigurationProvider {
         // Call Handler
         handleConfig(defaults);
         // Save
-        saveConfig(location, defaults);
+        save(location, defaults);
 
         return defaults;
     }
 
     protected abstract void handleConfig(Map<String, Object> config);
 
-    public synchronized void saveConfig(File location, Map<String, Object> config) {
+    public synchronized void save(File location, Map<String, Object> config) {
         try {
             commentStore.writeComments(YAML.get().dump(config), location);
         } catch (IOException e) {
@@ -129,33 +143,33 @@ public abstract class Config implements ConfigurationProvider {
 
     public abstract List<String> getUnsupportedOptions();
 
-    @Override
     public void set(String path, Object value) {
         config.put(path, value);
     }
 
-    @Override
-    public void saveConfig() {
-        this.configFile.getParentFile().mkdirs();
-        saveConfig(this.configFile, this.config);
+    public void save() {
+        if (this.configFile.getParentFile() != null) {
+            this.configFile.getParentFile().mkdirs();
+        }
+        save(this.configFile, this.config);
     }
 
-    public void saveConfig(final File file) {
-        saveConfig(file, this.config);
+    public void save(final File file) {
+        save(file, this.config);
     }
 
-    @Override
-    public void reloadConfig() {
-        this.configFile.getParentFile().mkdirs();
+    public void reload() {
+        if (this.configFile.getParentFile() != null) {
+            this.configFile.getParentFile().mkdirs();
+        }
         this.config = new ConcurrentSkipListMap<>(loadConfig(this.configFile));
     }
 
-    @Override
     public Map<String, Object> getValues() {
         return this.config;
     }
 
-    public @Nullable <T> T get(String key, Class<T> clazz, T def) {
+    public @Nullable <T> T get(String key, T def) {
         Object o = this.config.get(key);
         if (o != null) {
             return (T) o;
@@ -166,7 +180,7 @@ public abstract class Config implements ConfigurationProvider {
 
     public boolean getBoolean(String key, boolean def) {
         Object o = this.config.get(key);
-        if (o != null) {
+        if (o instanceof Boolean) {
             return (boolean) o;
         } else {
             return def;
@@ -175,7 +189,7 @@ public abstract class Config implements ConfigurationProvider {
 
     public @Nullable String getString(String key, @Nullable String def) {
         final Object o = this.config.get(key);
-        if (o != null) {
+        if (o instanceof String) {
             return (String) o;
         } else {
             return def;
@@ -184,12 +198,8 @@ public abstract class Config implements ConfigurationProvider {
 
     public int getInt(String key, int def) {
         Object o = this.config.get(key);
-        if (o != null) {
-            if (o instanceof Number) {
-                return ((Number) o).intValue();
-            } else {
-                return def;
-            }
+        if (o instanceof Number) {
+            return ((Number) o).intValue();
         } else {
             return def;
         }
@@ -197,12 +207,8 @@ public abstract class Config implements ConfigurationProvider {
 
     public double getDouble(String key, double def) {
         Object o = this.config.get(key);
-        if (o != null) {
-            if (o instanceof Number) {
-                return ((Number) o).doubleValue();
-            } else {
-                return def;
-            }
+        if (o instanceof Number) {
+            return ((Number) o).doubleValue();
         } else {
             return def;
         }
@@ -227,7 +233,7 @@ public abstract class Config implements ConfigurationProvider {
                 if (type.isInstance(o1)) {
                     filteredValues.add(type.cast(o1));
                 } else if (invalidValueMessage != null) {
-                    Via.getPlatform().getLogger().warning(String.format(invalidValueMessage, o1));
+                    LOGGER.warning(String.format(invalidValueMessage, o1));
                 }
             }
             return filteredValues;
@@ -238,7 +244,7 @@ public abstract class Config implements ConfigurationProvider {
     public @Nullable JsonElement getSerializedComponent(String key) {
         final Object o = this.config.get(key);
         if (o != null && !((String) o).isEmpty()) {
-            return GsonComponentSerializer.gson().serializeToTree(LegacyComponentSerializer.legacySection().deserialize((String) o));
+            return ComponentUtil.legacyToJson((String) o);
         } else {
             return null;
         }

@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2022 ViaVersion and contributors
+ * Copyright (C) 2016-2024 ViaVersion and contributors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -19,7 +19,6 @@ package com.viaversion.viaversion.protocols.protocol1_13to1_12_2.providers.block
 
 import com.github.steveice10.opennbt.tag.builtin.CompoundTag;
 import com.github.steveice10.opennbt.tag.builtin.NumberTag;
-import com.github.steveice10.opennbt.tag.builtin.Tag;
 import com.viaversion.viaversion.api.Via;
 import com.viaversion.viaversion.api.connection.UserConnection;
 import com.viaversion.viaversion.api.minecraft.Position;
@@ -33,7 +32,7 @@ public class SkullHandler implements BlockEntityProvider.BlockEntityHandler {
     @Override
     public int transform(UserConnection user, CompoundTag tag) {
         BlockStorage storage = user.get(BlockStorage.class);
-        Position position = new Position((int) getLong(tag.get("x")), (short) getLong(tag.get("y")), (int) getLong(tag.get("z")));
+        Position position = new Position(tag.getNumberTag("x").asInt(), tag.getNumberTag("y").asShort(), tag.getNumberTag("z").asInt());
 
         if (!storage.contains(position)) {
             Via.getPlatform().getLogger().warning("Received an head update packet, but there is no head! O_o " + tag);
@@ -42,12 +41,14 @@ public class SkullHandler implements BlockEntityProvider.BlockEntityHandler {
 
         int id = storage.get(position).getOriginal();
         if (id >= SKULL_WALL_START && id <= SKULL_END) {
-            Tag skullType = tag.get("SkullType");
+            NumberTag skullType = tag.getNumberTag("SkullType");
             if (skullType != null) {
-                id += ((NumberTag) tag.get("SkullType")).asInt() * 20;
+                id += skullType.asInt() * 20;
             }
-            if (tag.contains("Rot")) {
-                id += ((NumberTag) tag.get("Rot")).asInt();
+
+            NumberTag rot = tag.getNumberTag("Rot");
+            if (rot != null) {
+                id += rot.asInt();
             }
         } else {
             Via.getPlatform().getLogger().warning("Why does this block have the skull block entity? " + tag);
@@ -55,9 +56,5 @@ public class SkullHandler implements BlockEntityProvider.BlockEntityHandler {
         }
 
         return id;
-    }
-
-    private long getLong(NumberTag tag) {
-        return tag.asLong();
     }
 }

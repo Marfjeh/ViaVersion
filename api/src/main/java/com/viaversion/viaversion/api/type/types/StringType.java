@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2022 ViaVersion and contributors
+ * Copyright (C) 2016-2024 ViaVersion and contributors
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -26,12 +26,11 @@ import com.google.common.base.Preconditions;
 import com.viaversion.viaversion.api.type.OptionalType;
 import com.viaversion.viaversion.api.type.Type;
 import io.netty.buffer.ByteBuf;
-
 import java.nio.charset.StandardCharsets;
 
 public class StringType extends Type<String> {
     // String#length() (used to limit the string in Minecraft source code) uses char[]#length
-    private static final int maxJavaCharUtf8Length = Character.toString(Character.MAX_VALUE)
+    private static final int MAX_CHAR_UTF_8_LENGTH = Character.toString(Character.MAX_VALUE)
             .getBytes(StandardCharsets.UTF_8).length;
     private final int maxLength;
 
@@ -48,8 +47,8 @@ public class StringType extends Type<String> {
     public String read(ByteBuf buffer) throws Exception {
         int len = Type.VAR_INT.readPrimitive(buffer);
 
-        Preconditions.checkArgument(len <= maxLength * maxJavaCharUtf8Length,
-                "Cannot receive string longer than Short.MAX_VALUE * " + maxJavaCharUtf8Length + " bytes (got %s bytes)", len);
+        Preconditions.checkArgument(len <= maxLength * MAX_CHAR_UTF_8_LENGTH,
+                "Cannot receive string longer than Short.MAX_VALUE * " + MAX_CHAR_UTF_8_LENGTH + " bytes (got %s bytes)", len);
 
         String string = buffer.toString(buffer.readerIndex(), len, StandardCharsets.UTF_8);
         buffer.skipBytes(len);
@@ -62,7 +61,9 @@ public class StringType extends Type<String> {
 
     @Override
     public void write(ByteBuf buffer, String object) throws Exception {
-        Preconditions.checkArgument(object.length() <= maxLength, "Cannot send string longer than Short.MAX_VALUE (got %s characters)", object.length());
+        if (object.length() > maxLength) {
+            throw new IllegalArgumentException("Cannot send string longer than Short.MAX_VALUE characters (got " + object.length() + " characters)");
+        }
 
         byte[] b = object.getBytes(StandardCharsets.UTF_8);
         Type.VAR_INT.writePrimitive(buffer, b.length);

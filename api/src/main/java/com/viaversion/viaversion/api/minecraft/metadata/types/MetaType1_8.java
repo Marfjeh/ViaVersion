@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2022 ViaVersion and contributors
+ * Copyright (C) 2016-2024 ViaVersion and contributors
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -31,11 +31,9 @@ public enum MetaType1_8 implements MetaType {
     Int(2, Type.INT),
     Float(3, Type.FLOAT),
     String(4, Type.STRING),
-    Slot(5, Type.ITEM),
+    Slot(5, Type.ITEM1_8),
     Position(6, Type.VECTOR),
-    Rotation(7, Type.ROTATION),
-    @Deprecated
-    NonExistent(-1, Type.NOTHING);
+    Rotation(7, Type.ROTATION);
 
     private final int typeID;
     private final Type type;

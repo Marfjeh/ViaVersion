@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2022 ViaVersion and contributors
+ * Copyright (C) 2016-2024 ViaVersion and contributors
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -30,9 +30,8 @@ import com.viaversion.viaversion.api.type.Type;
 import com.viaversion.viaversion.exception.InformativeException;
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelFuture;
-import org.checkerframework.checker.nullness.qual.Nullable;
-
 import java.util.List;
+import org.checkerframework.checker.nullness.qual.Nullable;
 
 public interface PacketWrapper {
 
@@ -93,6 +92,7 @@ public interface PacketWrapper {
      * @param index The index of the part (relative to the type)
      * @return True if the type is at the index
      */
+    @Deprecated
     boolean is(Type type, int index);
 
     /**
@@ -213,11 +213,11 @@ public interface PacketWrapper {
      * (Sends it after current)
      * Also returns the packets ChannelFuture
      *
-     * @param packetProtocol The protocol version of the packet.
-     * @return The packets ChannelFuture
+     * @param protocolClass the protocol class to start from in the pipeline
+     * @return new ChannelFuture for the write operation
      * @throws Exception if it fails to write
      */
-    ChannelFuture sendFuture(Class<? extends Protocol> packetProtocol) throws Exception;
+    ChannelFuture sendFuture(Class<? extends Protocol> protocolClass) throws Exception;
 
     /**
      * @deprecated misleading; use {@link #sendRaw()}. This method will be removed in 5.0.0
@@ -288,23 +288,24 @@ public interface PacketWrapper {
      *
      * @param direction protocol direction
      * @param state     protocol state
-     * @param index     index to start from, will be reversed depending on the reverse parameter
      * @param pipeline  protocol pipeline
-     * @param reverse   whether the array should be looped in reverse, will also reverse the given index
-     * @return The current packetwrapper
      * @throws Exception If it fails to transform a packet, exception will be thrown
      */
+    void apply(Direction direction, State state, List<Protocol> pipeline) throws Exception;
+
+    /**
+     * @deprecated use {@link #apply(Direction, State, List)}
+     */
+    @Deprecated
     PacketWrapper apply(Direction direction, State state, int index, List<Protocol> pipeline, boolean reverse) throws Exception;
 
     /**
-     * @see #apply(Direction, State, int, List, boolean)
+     * @deprecated use {@link #apply(Direction, State, List)}
      */
-    PacketWrapper apply(Direction direction, State state, int index, List<Protocol> pipeline) throws Exception;
-
-    /**
-     * Cancel this packet from sending
-     */
-    void cancel();
+    @Deprecated
+    default PacketWrapper apply(Direction direction, State state, int index, List<Protocol> pipeline) throws Exception {
+        return apply(direction, state, index, pipeline, false);
+    }
 
     /**
      * Check if this packet is cancelled.
@@ -312,6 +313,20 @@ public interface PacketWrapper {
      * @return True if the packet won't be sent.
      */
     boolean isCancelled();
+
+    /**
+     * Cancel this packet from sending.
+     */
+    default void cancel() {
+        setCancelled(true);
+    }
+
+    /**
+     * Sets the cancellation state of the packet.
+     *
+     * @param cancel whether the packet should be cancelled
+     */
+    void setCancelled(boolean cancel);
 
     /**
      * Get the user associated with this Packet

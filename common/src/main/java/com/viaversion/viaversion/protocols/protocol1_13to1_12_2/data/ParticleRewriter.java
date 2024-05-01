@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2022 ViaVersion and contributors
+ * Copyright (C) 2016-2024 ViaVersion and contributors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -18,13 +18,12 @@
 package com.viaversion.viaversion.protocols.protocol1_13to1_12_2.data;
 
 import com.viaversion.viaversion.api.Via;
+import com.viaversion.viaversion.api.minecraft.Particle;
 import com.viaversion.viaversion.api.minecraft.item.DataItem;
 import com.viaversion.viaversion.api.minecraft.item.Item;
 import com.viaversion.viaversion.api.type.Type;
-import com.viaversion.viaversion.api.type.types.Particle;
 import com.viaversion.viaversion.protocols.protocol1_13to1_12_2.Protocol1_13To1_12_2;
 import com.viaversion.viaversion.protocols.protocol1_13to1_12_2.packets.WorldPackets;
-
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -42,7 +41,7 @@ public class ParticleRewriter {
         add(43); // (5->43) splash -> minecraft:splash
         add(22); // (6->22) wake -> minecraft:fishing
         add(42); // (7->42) suspended -> minecraft:underwater
-        add(42); // (8->42) depthsuspend -> minecraft:underwater (COMPLETELY REMOVED)
+        add(32); // (8->32) depthsuspend -> minecraft:mycelium
         add(6); // (9->6) crit -> minecraft:crit
         add(14); // (10->14) magicCrit -> minecraft:enchanted_hit
         add(37); // (11->37) smoke -> minecraft:smoke
@@ -62,7 +61,7 @@ public class ParticleRewriter {
         add(15); // (25->15) enchantmenttable -> minecraft:enchant
         add(23); // (26->23) flame -> minecraft:flame
         add(31); // (27->31) lava -> minecraft:lava
-        add(-1); // (28->-1) footstap -> REMOVED
+        add(-1); // (28->-1) footstep -> REMOVED
         add(5); // (29->5) cloud -> minecraft:cloud
         add(11, reddustHandler()); // (30->11) reddust -> minecraft:dust
         //    Red	Float	Red value, 0-1
@@ -91,14 +90,6 @@ public class ParticleRewriter {
         // BlockState	VarInt	The ID of the block state.
         add(41); // (47->41) totem -> minecraft:totem_of_undying
         add(38); // (48->38) spit -> minecraft:spit
-
-        /*
-            NEW particles
-            minecraft:squid_ink	39	None
-            minecraft:bubble_pop	45	None
-            minecraft:current_down	46	None
-            minecraft:bubble_column_up	47	None
-         */
     }
 
     public static Particle rewriteParticle(int particleId, Integer[] data) {
@@ -108,7 +99,7 @@ public class ParticleRewriter {
         }
 
         NewParticle rewrite = particles.get(particleId);
-        return rewrite.handle(new Particle(rewrite.getId()), data);
+        return rewrite.handle(new Particle(rewrite.id()), data);
     }
 
     private static void add(int newId) {
@@ -121,15 +112,12 @@ public class ParticleRewriter {
 
     // Randomized because the previous one was a lot of different colors at once! :)
     private static ParticleDataHandler reddustHandler() {
-        return new ParticleDataHandler() {
-            @Override
-            public Particle handler(Particle particle, Integer[] data) {
-                particle.getArguments().add(new Particle.ParticleData(Type.FLOAT, randomBool() ? 1f : 0f)); // Red 0 - 1
-                particle.getArguments().add(new Particle.ParticleData(Type.FLOAT, 0f)); // Green 0 - 1
-                particle.getArguments().add(new Particle.ParticleData(Type.FLOAT, randomBool() ? 1f : 0f)); // Blue 0 - 1
-                particle.getArguments().add(new Particle.ParticleData(Type.FLOAT, 1f));// Scale 0.01 - 4
-                return particle;
-            }
+        return (particle, data) -> {
+            particle.add(Type.FLOAT, randomBool() ? 1f : 0f); // Red 0 - 1
+            particle.add(Type.FLOAT, 0f); // Green 0 - 1
+            particle.add(Type.FLOAT, randomBool() ? 1f : 0f); // Blue 0 - 1
+            particle.add(Type.FLOAT, 1f);// Scale 0.01 - 4
+            return particle;
         };
     }
 
@@ -139,41 +127,37 @@ public class ParticleRewriter {
 
     // Rewrite IconCrack items to new format :)
     private static ParticleDataHandler iconcrackHandler() {
-        return new ParticleDataHandler() {
-            @Override
-            public Particle handler(Particle particle, Integer[] data) {
-                Item item;
-                if (data.length == 1)
-                    item = new DataItem(data[0], (byte) 1, (short) 0, null);
-                else if (data.length == 2)
-                    item = new DataItem(data[0], (byte) 1, data[1].shortValue(), null);
-                else
-                    return particle;
-
-                // Transform to new Item
-                Via.getManager().getProtocolManager().getProtocol(Protocol1_13To1_12_2.class).getItemRewriter().handleItemToClient(item);
-
-                particle.getArguments().add(new Particle.ParticleData(Type.FLAT_ITEM, item)); // Item Slot	The item that will be used.
+        return (particle, data) -> {
+            Item item;
+            if (data.length == 1) {
+                item = new DataItem(data[0], (byte) 1, (short) 0, null);
+            } else if (data.length == 2) {
+                item = new DataItem(data[0], (byte) 1, data[1].shortValue(), null);
+            } else {
                 return particle;
             }
+
+            // Transform to new Item
+            Via.getManager().getProtocolManager().getProtocol(Protocol1_13To1_12_2.class).getItemRewriter().handleItemToClient(null, item);
+
+            particle.add(Type.ITEM1_13, item); // Item Slot	The item that will be used.
+            return particle;
         };
     }
 
     // Handle (id+(data<<12)) encoded blocks
     private static ParticleDataHandler blockHandler() {
-        return new ParticleDataHandler() {
-            @Override
-            public Particle handler(Particle particle, Integer[] data) {
-                int value = data[0];
-                int combined = (((value & 4095) << 4) | (value >> 12 & 15));
-                int newId = WorldPackets.toNewId(combined);
+        return (particle, data) -> {
+            int value = data[0];
+            int combined = (((value & 4095) << 4) | (value >> 12 & 15));
+            int newId = WorldPackets.toNewId(combined);
 
-                particle.getArguments().add(new Particle.ParticleData(Type.VAR_INT, newId)); // BlockState	VarInt	The ID of the block state.
-                return particle;
-            }
+            particle.add(Type.VAR_INT, newId); // BlockState	VarInt	The ID of the block state.
+            return particle;
         };
     }
 
+    @FunctionalInterface
     interface ParticleDataHandler {
         Particle handler(Particle particle, Integer[] data);
     }
@@ -193,11 +177,11 @@ public class ParticleRewriter {
             return particle;
         }
 
-        public int getId() {
+        public int id() {
             return id;
         }
 
-        public ParticleDataHandler getHandler() {
+        public ParticleDataHandler handler() {
             return handler;
         }
     }

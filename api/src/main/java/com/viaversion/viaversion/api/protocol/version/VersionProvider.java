@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2022 ViaVersion and contributors
+ * Copyright (C) 2016-2024 ViaVersion and contributors
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -25,6 +25,7 @@ package com.viaversion.viaversion.api.protocol.version;
 import com.viaversion.viaversion.api.connection.UserConnection;
 import com.viaversion.viaversion.api.platform.providers.Provider;
 
+@FunctionalInterface
 public interface VersionProvider extends Provider {
 
     /**
@@ -34,5 +35,5 @@ public interface VersionProvider extends Provider {
      * @param connection connection
      * @return closest server protocol version to the user's protocol version
      */
-    int getClosestServerProtocol(UserConnection connection) throws Exception;
+    ProtocolVersion getClosestServerProtocol(UserConnection connection) throws Exception;
 }

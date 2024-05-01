@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2022 ViaVersion and contributors
+ * Copyright (C) 2016-2024 ViaVersion and contributors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -23,55 +23,53 @@ import com.github.steveice10.opennbt.tag.builtin.ShortTag;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
-import com.google.gson.JsonPrimitive;
 import com.viaversion.viaversion.api.Via;
+import com.viaversion.viaversion.api.connection.UserConnection;
 import com.viaversion.viaversion.api.minecraft.item.DataItem;
 import com.viaversion.viaversion.api.minecraft.item.Item;
-import com.viaversion.viaversion.api.minecraft.nbt.BinaryTagIO;
 import com.viaversion.viaversion.api.protocol.Protocol;
+import com.viaversion.viaversion.api.protocol.packet.ClientboundPacketType;
 import com.viaversion.viaversion.protocols.protocol1_13to1_12_2.Protocol1_13To1_12_2;
 import com.viaversion.viaversion.rewriter.ComponentRewriter;
+import com.viaversion.viaversion.util.ComponentUtil;
+import com.viaversion.viaversion.util.SerializerVersion;
+import java.util.logging.Level;
 
-import java.io.IOException;
+public class ComponentRewriter1_13<C extends ClientboundPacketType> extends ComponentRewriter<C> {
 
-public class ComponentRewriter1_13 extends ComponentRewriter {
-
-    public ComponentRewriter1_13(Protocol protocol) {
-        super(protocol);
+    public ComponentRewriter1_13(Protocol<C, ?, ?, ?> protocol) {
+        super(protocol, ReadType.JSON);
     }
 
     @Override
-    protected void handleHoverEvent(JsonObject hoverEvent) {
-        super.handleHoverEvent(hoverEvent);
-        String action = hoverEvent.getAsJsonPrimitive("action").getAsString();
+    protected void handleHoverEvent(UserConnection connection, JsonObject hoverEvent) {
+        super.handleHoverEvent(connection, hoverEvent);
+        final String action = hoverEvent.getAsJsonPrimitive("action").getAsString();
         if (!action.equals("show_item")) return;
 
-        JsonElement value = hoverEvent.get("value");
+        final JsonElement value = hoverEvent.get("value");
         if (value == null) return;
-
-        String text = findItemNBT(value);
-        if (text == null) return;
 
         CompoundTag tag;
         try {
-            tag = BinaryTagIO.readString(text);
+            tag = ComponentUtil.deserializeLegacyShowItem(value, SerializerVersion.V1_12);
         } catch (Exception e) {
             if (!Via.getConfig().isSuppressConversionWarnings() || Via.getManager().isDebug()) {
-                Via.getPlatform().getLogger().warning("Error reading NBT in show_item:" + text);
-                e.printStackTrace();
+                Via.getPlatform().getLogger().log(Level.WARNING, "Error reading 1.12.2 NBT in show_item: " + value, e);
             }
             return;
         }
 
-        CompoundTag itemTag = tag.get("tag");
-        NumberTag damageTag = tag.get("Damage");
+        final CompoundTag itemTag = tag.getCompoundTag("tag");
+        final NumberTag damageTag = tag.getNumberTag("Damage");
 
         // Call item converter
-        short damage = damageTag != null ? damageTag.asShort() : 0;
-        Item item = new DataItem();
+        final short damage = damageTag != null ? damageTag.asShort() : 0;
+
+        final Item item = new DataItem();
         item.setData(damage);
         item.setTag(itemTag);
-        protocol.getItemRewriter().handleItemToClient(item);
+        protocol.getItemRewriter().handleItemToClient(null, item);
 
         // Serialize again
         if (damage != item.data()) {
@@ -81,37 +79,17 @@ public class ComponentRewriter1_13 extends ComponentRewriter {
             tag.put("tag", itemTag);
         }
 
-        JsonArray array = new JsonArray();
-        JsonObject object = new JsonObject();
-        array.add(object);
-        String serializedNBT;
+        final JsonArray newValue = new JsonArray();
+        final JsonObject showItem = new JsonObject();
+        newValue.add(showItem);
         try {
-            serializedNBT = BinaryTagIO.writeString(tag);
-            object.addProperty("text", serializedNBT);
-            hoverEvent.add("value", array);
-        } catch (IOException e) {
-            Via.getPlatform().getLogger().warning("Error writing NBT in show_item:" + text);
-            e.printStackTrace();
-        }
-    }
-
-    protected String findItemNBT(JsonElement element) {
-        if (element.isJsonArray()) {
-            for (JsonElement jsonElement : element.getAsJsonArray()) {
-                String value = findItemNBT(jsonElement);
-                if (value != null) {
-                    return value;
-                }
+            showItem.addProperty("text", SerializerVersion.V1_13.toSNBT(tag));
+            hoverEvent.add("value", newValue);
+        } catch (Exception e) {
+            if (!Via.getConfig().isSuppressConversionWarnings() || Via.getManager().isDebug()) {
+                Via.getPlatform().getLogger().log(Level.WARNING, "Error writing 1.13 NBT in show_item: " + value, e);
             }
-        } else if (element.isJsonObject()) {
-            JsonPrimitive text = element.getAsJsonObject().getAsJsonPrimitive("text");
-            if (text != null) {
-                return text.getAsString();
-            }
-        } else if (element.isJsonPrimitive()) {
-            return element.getAsJsonPrimitive().getAsString();
         }
-        return null;
     }
 
     @Override

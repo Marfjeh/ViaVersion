@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2022 ViaVersion and contributors
+ * Copyright (C) 2016-2024 ViaVersion and contributors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -273,7 +273,7 @@ public enum SoundEffect {
     private final String name;
     private final String newName;
     private final SoundCategory category;
-    private final boolean breaksound;
+    private final boolean breakSound;
 
     private static final Map<String, SoundEffect> effects;
 
@@ -284,22 +284,21 @@ public enum SoundEffect {
         }
     }
 
-    SoundEffect(String name, String newname, SoundCategory cat) {
-        this.category = cat;
-        this.newName = newname;
+    SoundEffect(String name, String newName, SoundCategory category) {
+        this.category = category;
+        this.newName = newName;
         this.name = name;
-        this.breaksound = name.startsWith("dig.");
+        this.breakSound = name.startsWith("dig.");
     }
 
-    SoundEffect(String name, String newname, SoundCategory cat, boolean shouldIgnore) {
-        this.category = cat;
-        this.newName = newname;
+    SoundEffect(String name, String newName, SoundCategory category, boolean shouldIgnore) {
+        this.category = category;
+        this.newName = newName;
         this.name = name;
-        this.breaksound = name.startsWith("dig.") || shouldIgnore;
+        this.breakSound = name.startsWith("dig.") || shouldIgnore;
     }
 
     public static SoundEffect getByName(String name) {
-        name = name.toLowerCase(Locale.ROOT);
         return effects.get(name);
     }
 
@@ -315,7 +314,7 @@ public enum SoundEffect {
         return category;
     }
 
-    public boolean isBreaksound() {
-        return breaksound;
+    public boolean isBreakSound() {
+        return breakSound;
     }
 }

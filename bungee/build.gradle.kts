@@ -1,5 +1,6 @@
 dependencies {
-    implementation(projects.viaversionCommon)
-    implementation(projects.javaCompat)
+    compileOnlyApi(projects.viaversionCommon)
     compileOnly(libs.bungee)
 }
+
+publishShadowJar()

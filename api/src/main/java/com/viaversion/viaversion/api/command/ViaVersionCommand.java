@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2022 ViaVersion and contributors
+ * Copyright (C) 2016-2024 ViaVersion and contributors
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -22,9 +22,8 @@
  */
 package com.viaversion.viaversion.api.command;
 
-import org.checkerframework.checker.nullness.qual.Nullable;
-
 import java.util.List;
+import org.checkerframework.checker.nullness.qual.Nullable;
 
 public interface ViaVersionCommand {
     /**
@@ -33,7 +32,7 @@ public interface ViaVersionCommand {
      * @param command Your own SubCommand instance to handle it.
      * @throws Exception throws an exception when the subcommand already exists or if it's not valid, example: spacee
      */
-    void registerSubCommand(ViaSubCommand command) throws Exception;
+    void registerSubCommand(ViaSubCommand command);
 
     /**
      * Check if a subcommand is registered.

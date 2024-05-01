@@ -2,47 +2,40 @@ metadata.format.version = "1.1"
 
 [versions]
 
-adventure = "4.9.3"
-gson = "2.8.8"
-fastutil = "8.5.6"
-flare = "2.0.0"
-openNBT = "2.0"
-javassist = "3.28.0-GA"
+gson = "2.10.1"
+fastutil = "8.5.12"
+vianbt = "4.4.4"
+mcstructs = "2.5.0-SNAPSHOT"
 
 # Common provided
 netty = "4.0.20.Final"
 guava = "17.0"
 snakeYaml = "1.18"
+snakeYaml2 = "2.0"
 
-junit = "5.7.2"
-checkerQual = "3.18.0"
+junit = "5.9.3"
+checkerQual = "3.39.0"
 
 # Platforms
 paper = "1.16.5-R0.1-SNAPSHOT"
 legacyBukkit = "1.8.8-R0.1-SNAPSHOT"
-bungee = "1.17-R0.1-SNAPSHOT"
+bungee = "1.19-R0.1-SNAPSHOT"
 sponge = "8.0.0"
-legacySponge = "4.0.0"
-velocity = "3.0.0-SNAPSHOT"
+velocity = "3.1.1"
 
 
 [libraries]
 
-adventureApi = { group = "net.kyori", name = "adventure-api", version.ref = "adventure" }
-adventureTextSerializerGson = { group = "net.kyori", name = "adventure-text-serializer-gson", version.ref = "adventure" }
-adventureTextSerializerGsonLegacy = { group = "net.kyori", name = "adventure-text-serializer-gson-legacy-impl", version.ref = "adventure" }
-adventureTextSerializerLegacy = { group = "net.kyori", name = "adventure-text-serializer-legacy", version.ref = "adventure" }
-
 gson = { group = "com.google.code.gson", name = "gson", version.ref = "gson" }
 fastutil = { group = "it.unimi.dsi", name = "fastutil", version.ref = "fastutil" }
-flare = { group = "space.vectrix.flare", name = "flare", version.ref = "flare" }
-flareFastutil = { group = "space.vectrix.flare", name = "flare-fastutil", version.ref = "flare" }
-openNBT = { group = "com.viaversion", name = "opennbt", version.ref = "openNBT" }
-javassist = { group = "org.javassist", name = "javassist", version.ref = "javassist" }
+vianbt = { group = "com.viaversion", name = "nbt", version.ref = "vianbt" }
+# Custom version that uses ViaNBT instead of its own inbuilt NBT library
+text = { group = "com.viaversion.mcstructs", name = "text", version.ref = "mcstructs" }
 
 netty = { group = "io.netty", name = "netty-all", version.ref = "netty" }
 guava = { group = "com.google.guava", name = "guava", version.ref = "guava" }
 snakeYaml = { group = "org.yaml", name = "snakeyaml", version.ref = "snakeYaml" }
+snakeYaml2 = { group = "org.yaml", name = "snakeyaml", version.ref = "snakeYaml2" }
 
 jupiterApi = { group = "org.junit.jupiter", name = "junit-jupiter-api", version.ref = "junit" }
 jupiterEngine = { group = "org.junit.jupiter", name = "junit-jupiter-engine", version.ref = "junit" }
@@ -52,11 +45,9 @@ paper = { group = "com.destroystokyo.paper", name = "paper-api", version.ref = "
 legacyBukkit = { group = "org.bukkit", name = "bukkit", version.ref = "legacyBukkit" }
 bungee = { group = "net.md-5", name = "bungeecord-api", version.ref = "bungee" }
 sponge = { group = "org.spongepowered", name = "spongeapi", version.ref = "sponge" }
-legacySponge = { group = "org.spongepowered", name = "spongeapi", version.ref = "legacySponge" }
 velocity = { group = "com.velocitypowered", name = "velocity-api", version.ref = "velocity" }
 
 
 [bundles]
 
-adventure = ["adventureApi", "adventureTextSerializerGson", "adventureTextSerializerGsonLegacy", "adventureTextSerializerLegacy"]
 junit = ["jupiterApi", "jupiterEngine"]

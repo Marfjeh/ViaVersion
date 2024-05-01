@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2022 ViaVersion and contributors
+ * Copyright (C) 2016-2024 ViaVersion and contributors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -17,13 +17,15 @@
  */
 package com.viaversion.viaversion.protocols.base;
 
-import com.viaversion.viaversion.api.protocol.packet.ServerboundPacketType;
 import com.viaversion.viaversion.api.protocol.packet.State;
+import com.viaversion.viaversion.protocols.base.packet.BaseServerboundPacket;
 
-public enum ServerboundLoginPackets implements ServerboundPacketType {
+public enum ServerboundLoginPackets implements BaseServerboundPacket {
     HELLO, // 0x00
     ENCRYPTION_KEY, // 0x01
-    CUSTOM_QUERY; // 0x02
+    CUSTOM_QUERY_ANSWER, // 0x02
+    LOGIN_ACKNOWLEDGED, // 0x03
+    COOKIE_RESPONSE; // 0x04
 
     @Override
     public final int getId() {

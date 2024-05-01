@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2022 ViaVersion and contributors
+ * Copyright (C) 2016-2024 ViaVersion and contributors
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -31,12 +31,13 @@ import com.viaversion.viaversion.api.protocol.packet.ServerboundPacketType;
 import com.viaversion.viaversion.api.protocol.packet.VersionedPacketTransformer;
 import com.viaversion.viaversion.api.protocol.version.ProtocolVersion;
 import com.viaversion.viaversion.api.protocol.version.ServerProtocolVersion;
+import com.viaversion.viaversion.api.protocol.version.VersionType;
 import io.netty.buffer.ByteBuf;
-import org.checkerframework.checker.nullness.qual.Nullable;
-
+import java.util.Collection;
 import java.util.List;
 import java.util.SortedSet;
 import java.util.concurrent.CompletableFuture;
+import org.checkerframework.checker.nullness.qual.Nullable;
 
 public interface ProtocolManager {
 
@@ -62,21 +63,8 @@ public interface ProtocolManager {
      * @param clientVersion client protocol version
      * @param serverVersion server protocol version
      * @return protocol if present, else null
-     * @see #getProtocolPath(int, int) to get a full path of Protocols between a larger gap of versions
      */
-    default @Nullable Protocol getProtocol(ProtocolVersion clientVersion, ProtocolVersion serverVersion) {
-        return getProtocol(clientVersion.getVersion(), serverVersion.getVersion());
-    }
-
-    /**
-     * Returns a protocol transforming packets for server version to the given client version.
-     *
-     * @param clientVersion client protocol version
-     * @param serverVersion server protocol version
-     * @return protocol if present, else null
-     * @see #getProtocolPath(int, int) to get a full path of Protocols between a larger gap of versions
-     */
-    @Nullable Protocol getProtocol(int clientVersion, int serverVersion);
+    @Nullable Protocol getProtocol(ProtocolVersion clientVersion, ProtocolVersion serverVersion);
 
     /**
      * Returns the base protocol handling serverbound handshake packets.
@@ -90,18 +78,21 @@ public interface ProtocolManager {
      * The standard base protocols deal with status and login packets for userconnection initialization.
      *
      * @param serverVersion server protocol version
-     * @return base protocol for the given server protocol version
-     * @throws IllegalStateException if no base protocol could be found
+     * @return base protocol for the given server protocol version if present, else null
      */
-    Protocol getBaseProtocol(int serverVersion);
+    @Nullable Protocol getBaseProtocol(ProtocolVersion serverVersion);
 
     /**
-     * Returns whether the given protocol is a base protocol.
+     * Returns an immutable collection of registered protocols.
      *
-     * @param protocol protocol
-     * @return whether the protocol is a base protocol
-     * @see Protocol#isBaseProtocol()
+     * @return immutable collection of registered protocols
      */
+    Collection<Protocol<?, ?, ?, ?>> getProtocols();
+
+    /**
+     * @deprecated use Protocol#isBaseProtocol()
+     */
+    @Deprecated/*(forRemoval = true)*/
     default boolean isBaseProtocol(Protocol protocol) {
         return protocol.isBaseProtocol();
     }
@@ -124,7 +115,7 @@ public interface ProtocolManager {
      * @param serverVersion          output server protocol version the protocol converts to
      * @throws IllegalArgumentException if a supported client protocol version is equal to the server protocol version
      */
-    void registerProtocol(Protocol protocol, List<Integer> supportedClientVersion, int serverVersion);
+    void registerProtocol(Protocol protocol, List<ProtocolVersion> supportedClientVersion, ProtocolVersion serverVersion);
 
     /**
      * Registers and initializes a base protocol. Base Protocols registered later have higher priority.
@@ -134,7 +125,7 @@ public interface ProtocolManager {
      * @param supportedProtocols protocol versions supported by the base protocol
      * @throws IllegalArgumentException if the protocol is not a base protocol as given by {@link Protocol#isBaseProtocol()}
      */
-    void registerBaseProtocol(Protocol baseProtocol, Range<Integer> supportedProtocols);
+    void registerBaseProtocol(Protocol baseProtocol, Range<ProtocolVersion> supportedProtocols);
 
     /**
      * Calculates and returns the protocol path from a client protocol version to server protocol version.
@@ -144,7 +135,12 @@ public interface ProtocolManager {
      * @param serverVersion desired output server protocol version
      * @return path generated, or null if not supported or the length exceeds {@link #getMaxProtocolPathSize()}
      */
-    @Nullable List<ProtocolPathEntry> getProtocolPath(int clientVersion, int serverVersion);
+    @Nullable List<ProtocolPathEntry> getProtocolPath(ProtocolVersion clientVersion, ProtocolVersion serverVersion);
+
+    @Deprecated
+    default @Nullable List<ProtocolPathEntry> getProtocolPath(int clientVersion, int serverVersion) {
+        return getProtocolPath(ProtocolVersion.getProtocol(clientVersion), ProtocolVersion.getProtocol(serverVersion));
+    }
 
     /**
      * Returns a versioned packet transformer to transform and send packets from a given base version to any client version supported by Via.
@@ -171,10 +167,10 @@ public interface ProtocolManager {
      * @throws IllegalArgumentException if both packet classes are null
      */
     <C extends ClientboundPacketType,
-            S extends ServerboundPacketType
-            > VersionedPacketTransformer<C, S> createPacketTransformer(ProtocolVersion inputVersion,
-                                                                       @Nullable Class<C> clientboundPacketsClass,
-                                                                       @Nullable Class<S> serverboundPacketsClass);
+        S extends ServerboundPacketType
+        > VersionedPacketTransformer<C, S> createPacketTransformer(ProtocolVersion inputVersion,
+                                                                   @Nullable Class<C> clientboundPacketsClass,
+                                                                   @Nullable Class<S> serverboundPacketsClass);
 
     /**
      * Sets the max delta the path calculation allows the distance to the target protocol version to increase.
@@ -222,14 +218,14 @@ public interface ProtocolManager {
     }
 
     /**
-     * Returns the maximum protocol path size applied to {@link #getProtocolPath(int, int)}.
+     * Returns the maximum protocol path size applied to {@link #getProtocolPath(ProtocolVersion, ProtocolVersion)}.
      *
      * @return maximum protocol path size
      */
     int getMaxProtocolPathSize();
 
     /**
-     * Sets the maximum protocol path size applied to {@link #getProtocolPath(int, int)}.
+     * Sets the maximum protocol path size applied to {@link #getProtocolPath(ProtocolVersion, ProtocolVersion)}.
      * Its default is 50.
      *
      * @param maxProtocolPathSize maximum protocol path size
@@ -241,7 +237,7 @@ public interface ProtocolManager {
      *
      * @return sorted, immutable set of supported protocol versions
      */
-    SortedSet<Integer> getSupportedVersions();
+    SortedSet<ProtocolVersion> getSupportedVersions();
 
     /**
      * Check if this plugin is useful to the server.
@@ -314,4 +310,11 @@ public interface ProtocolManager {
      */
     @Deprecated
     PacketWrapper createPacketWrapper(int packetId, @Nullable ByteBuf buf, UserConnection connection);
+
+    /**
+     * Returns whether the mappings have been loaded and the mapping loader executor shutdown.
+     *
+     * @return whether the mappings have been loaded
+     */
+    boolean hasLoadedMappings();
 }

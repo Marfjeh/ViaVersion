@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2021 ViaVersion and contributors
+ * Copyright (C) 2016-2024 ViaVersion and contributors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -18,7 +18,6 @@
 package com.viaversion.viaversion.common.dummy;
 
 import com.viaversion.viaversion.configuration.AbstractViaConfig;
-
 import java.io.File;
 import java.net.URL;
 import java.util.Collections;
@@ -27,8 +26,8 @@ import java.util.Map;
 
 public final class TestConfig extends AbstractViaConfig {
 
-    public TestConfig(File configFile) {
-        super(configFile);
+    public TestConfig(File file) {
+        super(file);
     }
 
     @Override
